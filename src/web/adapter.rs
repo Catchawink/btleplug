@@ -24,15 +24,20 @@ impl Adapter {
     pub(crate) async fn new() -> Result<Self> {
         let manager = Arc::new(AdapterManager::default());
 
-        //let manager_clone = manager.clone();
-        spawn_blocking(move || {
-    
+        let (tx, mut rx) = oneshot::channel::<()>();
+
+        spawn_local(async move {
             let nav = web_sys::window().unwrap().navigator();
             if nav.bluetooth().is_none() {
               log!("WebBluetooth is not supported on this browser");
               return;
             }
+            tx.send(()).unwrap();
         });
+
+        while let Err(_) = rx.try_recv() {
+          super::utils::sleep(Duration::from_millis(100)).await;
+        }
 
         Ok(Adapter {
             manager
