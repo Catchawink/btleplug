@@ -1,6 +1,10 @@
 //! The `platform` module contains the platform-specific implementations of the various [`api`]
 //! traits. Refer for the `api` module for how to use them.
 
+#[cfg(target_arch = "wasm32")]
+pub use crate::web::{
+    adapter::Adapter, manager::Manager, peripheral::Peripheral, peripheral::PeripheralId,
+};
 #[cfg(target_os = "linux")]
 pub use crate::bluez::{
     adapter::Adapter, manager::Manager, peripheral::Peripheral, peripheral::PeripheralId,

@@ -96,6 +96,8 @@ use std::result;
 use std::time::Duration;
 
 pub mod api;
+#[cfg(target_arch = "wasm32")]
+mod web;
 #[cfg(target_os = "linux")]
 mod bluez;
 #[cfg(not(target_os = "linux"))]

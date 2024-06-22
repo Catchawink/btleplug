@@ -35,6 +35,10 @@ static_assertions = "1.1.0"
 # rt feature needed for block_on in macOS internal thread
 tokio = { version = "1.35.1", features = ["sync", "rt"] }
 tokio-stream = { version = "0.1.14", features = ["sync"] }
+gloo-console = "0.3.0"
+wasm-bindgen = "0.2.92"
+wasm-bindgen-futures = "0.4.42"
+js-sys = "0.3.69"
 
 [target.'cfg(target_os = "linux")'.dependencies]
 dbus = "0.9.7"
@@ -53,8 +57,19 @@ libc = "0.2.151"
 [target.'cfg(target_os = "windows")'.dependencies]
 windows = { version = "0.52.0", features = ["Devices_Bluetooth", "Devices_Bluetooth_GenericAttributeProfile", "Devices_Bluetooth_Advertisement", "Devices_Radios", "Foundation_Collections", "Foundation", "Storage_Streams"] }
 
+[target.'cfg(all(target_arch = "wasm32"))'.dependencies.web-sys]
+version = "0.3"
+features = ["Bluetooth", "BluetoothDevice", "BluetoothRemoteGattServer", "BluetoothRemoteGattService", "BluetoothRemoteGattCharacteristic", "BluetoothCharacteristicProperties", "BluetoothRemoteGattDescriptor", "Navigator", "RequestDeviceOptions"]
+
 [dev-dependencies]
 rand = "0.8.5"
 pretty_env_logger = "0.5.0"
-tokio = { version = "1.35.1", features = ["macros", "rt", "rt-multi-thread"] }
 serde_json = "1.0.109"
+
+[target.'cfg(not(target_arch = "wasm32"))'.dev-dependencies]
+tokio = { version = "1.35.1", features = ["macros", "rt", "rt-multi-thread"] }
+getrandom = { version = "0.2.15" }
+
+[target.'cfg(target_arch = "wasm32")'.dev-dependencies]
+tokio = { version = "1.35.1", features = ["macros", "rt"] }
+getrandom = { version = "0.2.15", features = ["js"] }

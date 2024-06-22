@@ -14,7 +14,8 @@ const PERIPHERAL_NAME_MATCH_FILTER: &str = "Neuro";
 /// UUID of the characteristic for which we should subscribe to notifications.
 const NOTIFY_CHARACTERISTIC_UUID: Uuid = Uuid::from_u128(0x6e400002_b534_f393_67a9_e50e24dccA9e);
 
-#[tokio::main]
+#[cfg_attr(not(target_arch = "wasm32"), tokio::main)]
+#[cfg_attr(target_arch = "wasm32", tokio::main(flavor = "current_thread"))]
 async fn main() -> Result<(), Box<dyn Error>> {
     pretty_env_logger::init();
 

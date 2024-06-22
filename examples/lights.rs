@@ -29,7 +29,8 @@ async fn find_light(central: &Adapter) -> Option<Peripheral> {
     None
 }
 
-#[tokio::main]
+#[cfg_attr(not(target_arch = "wasm32"), tokio::main)]
+#[cfg_attr(target_arch = "wasm32", tokio::main(flavor = "current_thread"))]
 async fn main() -> Result<(), Box<dyn Error>> {
     pretty_env_logger::init();
 
