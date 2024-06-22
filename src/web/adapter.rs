@@ -90,7 +90,7 @@ impl Central for Adapter {
       });
 
       while let Err(_) = rx.try_recv() {
-        tokio::time::sleep(Duration::from_millis(100)).await;
+        super::utils::sleep(Duration::from_millis(100)).await;
       }
 
       Ok(())
