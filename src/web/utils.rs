@@ -23,9 +23,9 @@ pub fn get_bluetooth_characteristic(device_id: Uuid, service_id: Uuid, character
 }
 
 pub async fn sleep(duration: Duration) {
-    //let (response_tx, response_rx) = oneshot::channel::<()>();
+    let (response_tx, response_rx) = oneshot::channel::<()>();
     
-   // wasm_bindgen_futures::spawn_local(async move {
+   wasm_bindgen_futures::spawn_local(async move {
         /*
             let mut cb = |resolve: js_sys::Function, _reject: js_sys::Function| {
                 web_sys::window()
@@ -39,8 +39,8 @@ pub async fn sleep(duration: Duration) {
  */
             async_std::task::sleep(std::time::Duration::from_millis(duration.as_millis() as u64)).await;
                 
-            //response_tx.send(()).unwrap();
-        //}
-    //);
-    //response_rx.await.unwrap();
+            response_tx.send(()).unwrap();
+        }
+    );
+    response_rx.await.unwrap();
 }

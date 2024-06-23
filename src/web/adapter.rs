@@ -24,13 +24,13 @@ impl Adapter {
     pub(crate) async fn new() -> Result<Self> {
         let manager = Arc::new(AdapterManager::default());
 
-        let nav = web_sys::window().unwrap().navigator();
-        if nav.bluetooth().is_none() {
-          log!("WebBluetooth is not supported on this browser");
-          return Err(Error::NotSupported(
-            "WebBluetooth is not supported on this browser".to_string(),
-          ));
-        }
+          let nav = web_sys::window().unwrap().navigator();
+          if nav.bluetooth().is_none() {
+            log!("WebBluetooth is not supported on this browser");
+            return Err(Error::NotSupported(
+              "WebBluetooth is not supported on this browser".to_string(),
+            ));
+          }
 
         Ok(Adapter {
             manager
@@ -48,7 +48,7 @@ impl Central for Adapter {
 
     async fn start_scan(&self, filter: ScanFilter) -> Result<()> {
 
-      //let (tx, mut rx) = oneshot::channel::<()>();
+      let (tx, mut rx) = oneshot::channel::<()>();
 
       let manager_clone = self.manager.clone();
       spawn_local(async move {
@@ -79,12 +79,12 @@ impl Central for Adapter {
                   manager_clone.emit(CentralEvent::DeviceDiscovered(id.into()));
               }
           }
-          //tx.send(()).unwrap();
+          tx.send(()).unwrap();
       });
 
-      //while let Err(_) = rx.try_recv() {
-        //super::utils::sleep(Duration::from_millis(100)).await;
-      //}
+      while let Err(_) = rx.try_recv() {
+        super::utils::sleep(Duration::from_millis(100)).await;
+      }
 
       Ok(())
     }
