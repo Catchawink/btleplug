@@ -39,8 +39,8 @@ pub async fn sleep(duration: Duration) {
 */
             async_std::task::sleep(std::time::Duration::from_millis(duration.as_millis() as u64)).await;
                 
-            response_tx.send(());
+            response_tx.send(()).unwrap();
         }
     );
-    response_rx.await;
+    response_rx.await.unwrap();
 }
