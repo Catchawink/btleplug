@@ -26,7 +26,7 @@ pub async fn sleep(duration: Duration) {
     let (response_tx, response_rx) = oneshot::channel::<()>();
     
     wasm_bindgen_futures::spawn_local(async move {
-        /*
+        
             let mut cb = |resolve: js_sys::Function, _reject: js_sys::Function| {
                 web_sys::window()
                     .unwrap()
@@ -36,11 +36,11 @@ pub async fn sleep(duration: Duration) {
         
             let p = js_sys::Promise::new(&mut cb);
             wasm_bindgen_futures::JsFuture::from(p).await.unwrap();
-*/
-            async_std::task::sleep(std::time::Duration::from_millis(duration.as_millis() as u64)).await;
+
+            //async_std::task::sleep(std::time::Duration::from_millis(duration.as_millis() as u64)).await;
                 
-            response_tx.send(());
+            response_tx.send(()).unwrap();
         }
     );
-    response_rx.await;
+    response_rx.await.unwrap();
 }
