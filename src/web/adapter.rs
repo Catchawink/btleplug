@@ -13,7 +13,7 @@ use web_sys::{BluetoothDevice, BluetoothRemoteGattCharacteristic, BluetoothRemot
 use std::str::FromStr;
 use js_sys::Array;
 use super::utils::*;
-use tokio::sync::oneshot;
+use futures::channel::oneshot;
 
 #[derive(Clone, Debug)]
 pub struct Adapter {
