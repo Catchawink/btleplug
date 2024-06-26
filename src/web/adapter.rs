@@ -82,9 +82,11 @@ impl Central for Adapter {
           tx.send(()).unwrap();
       });
 
-      while let Err(_) = rx.try_recv() {
-        super::utils::sleep(Duration::from_millis(100)).await;
-      }
+      rx.await.unwrap();
+
+      //while let Err(_) = rx.try_recv() {
+      //  super::utils::sleep(Duration::from_millis(100)).await;
+      //}
 
       Ok(())
     }
