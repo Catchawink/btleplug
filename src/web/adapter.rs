@@ -65,7 +65,10 @@ impl Central for Adapter {
           // Uses get_devices() rather than request_device()--but get_devices() is experimental currently
           //let devices = JsFuture::from(get_bluetooth_api().get_devices()).await.map_err(|x| { Error::RuntimeError(x.as_string().unwrap()) }).expect("Failed to find devices!");
           //let devices = js_sys::Array::from(&devices).iter().map(|x| Into::<BluetoothDevice>::into(x));
-          let devices = vec![BluetoothDevice::from(JsFuture::from(get_bluetooth_api().request_device(&options)).await.map_err(|x| { Error::RuntimeError(x.as_string().unwrap()) }).expect("Failed to find devices!"))];
+          let devices = vec![BluetoothDevice::from(JsFuture::from(get_bluetooth_api().request_device(&options)).await.map_err(|x| { Error::RuntimeError(format!(
+            "Error while trying to request device: {:?}",
+            x
+          )) }).expect("Failed to find devices!"))];
 
           for device in devices {
             log!("Found bluetooth device.");
