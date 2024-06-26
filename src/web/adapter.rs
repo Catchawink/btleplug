@@ -62,28 +62,30 @@ impl Central for Adapter {
           }
           options.optional_services(&arr);
 
-          let devices = JsFuture::from(get_bluetooth_api().get_devices()).await.map_err(|x| { Error::RuntimeError(x.as_string().unwrap()) }).expect("Failed to find devices!");
-          let devices = js_sys::Array::from(&devices);
+          // Uses get_devices() rather than request_device()--but get_devices() is experimental currently
+          //let devices = JsFuture::from(get_bluetooth_api().get_devices()).await.map_err(|x| { Error::RuntimeError(x.as_string().unwrap()) }).expect("Failed to find devices!");
+          //let devices = js_sys::Array::from(&devices).iter().map(|x| Into::<BluetoothDevice>::into(x));
+          let devices = vec![BluetoothDevice::from(JsFuture::from(get_bluetooth_api().request_device(&options)).await.map_err(|x| { Error::RuntimeError(x.as_string().unwrap()) }).expect("Failed to find devices!"))];
+
           for device in devices {
             log!("Found bluetooth device.");
 
-              let device = BluetoothDevice::from(device);
-              if let Some(name) = device.name() {
-                log!(format!("Bluetooth device name: {}", name));
-              }
+            if let Some(name) = device.name() {
+              log!(format!("Bluetooth device name: {}", name));
+            }
 
-              // Can't get device address (as on other platforms)--devices have unique IDs instead
-              let id = Uuid::from_str(&device.id()).unwrap();
-              
-              if let Some(mut entry) = manager_clone.peripheral_mut(&id.into()) {
-                  entry.value_mut().update_properties(device).await;
-                  manager_clone.emit(CentralEvent::DeviceUpdated(id.into()));
-              } else {
-                  let peripheral = Peripheral::new(Arc::downgrade(&manager_clone), id);
-                  peripheral.update_properties(device).await;
-                  manager_clone.add_peripheral(peripheral);
-                  manager_clone.emit(CentralEvent::DeviceDiscovered(id.into()));
-              }
+            // Can't get device address (as on other platforms)--devices have unique IDs instead
+            let id = Uuid::from_str(&device.id()).unwrap();
+            
+            if let Some(mut entry) = manager_clone.peripheral_mut(&id.into()) {
+                entry.value_mut().update_properties(device).await;
+                manager_clone.emit(CentralEvent::DeviceUpdated(id.into()));
+            } else {
+                let peripheral = Peripheral::new(Arc::downgrade(&manager_clone), id);
+                peripheral.update_properties(device).await;
+                manager_clone.add_peripheral(peripheral);
+                manager_clone.emit(CentralEvent::DeviceDiscovered(id.into()));
+            }
           }
           tx.send(()).unwrap();
       });
