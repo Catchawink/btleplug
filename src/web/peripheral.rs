@@ -93,10 +93,10 @@ impl Peripheral {
         },
       };
 
+      let _characteristics = _characteristics.iter().map(|x| Into::<BluetoothRemoteGattCharacteristic>::into(x));
+
       let mut characteristics = BTreeSet::<Characteristic>::default();
       for _characteristic in _characteristics {
-        let _characteristic: BluetoothRemoteGattCharacteristic = _characteristic.into();
-      
         let _descriptors: Array = match JsFuture::from(_characteristic.get_descriptors()).await {
           Ok(val) => {
             log!("GOT DESCRIPTORS");
@@ -107,6 +107,8 @@ impl Peripheral {
             return;
           }   
         };
+
+        let _descriptors = _descriptors.iter().map(|x| Into::<BluetoothRemoteGattDescriptor>::into(x));
         
         let _properties = _characteristic.properties();
 
@@ -135,8 +137,6 @@ impl Peripheral {
 
         let mut descriptors = BTreeSet::<Descriptor>::default();
         for _descriptor in _descriptors {
-          let _descriptor: BluetoothRemoteGattDescriptor = _descriptor.into();
-          
           let descriptor = Descriptor {
             uuid: Uuid::from_str(&_descriptor.uuid()).unwrap(),
             service_uuid: Uuid::from_str(&_service.uuid()).unwrap(),
