@@ -65,7 +65,13 @@ impl Central for Adapter {
           let devices = JsFuture::from(get_bluetooth_api().get_devices()).await.map_err(|x| { Error::RuntimeError(x.as_string().unwrap()) }).expect("Failed to find devices!");
           let devices = js_sys::Array::from(&devices);
           for device in devices {
+            log!("Found bluetooth device.");
+
               let device = BluetoothDevice::from(device);
+              if let Some(name) = device.name() {
+                log!(format!("Bluetooth device name: {}", name));
+              }
+
               // Can't get device address (as on other platforms)--devices have unique IDs instead
               let id = Uuid::from_str(&device.id()).unwrap();
               
