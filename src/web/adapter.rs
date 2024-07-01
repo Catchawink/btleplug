@@ -77,6 +77,8 @@ impl Central for Adapter {
               log!(format!("Bluetooth device name: {}", name));
             }
 
+            log!(format!("Bluetooth device id: {}", device.id()));
+            
             // Can't get device address (as on other platforms)--devices have unique IDs instead
             let id = Uuid::from_str(&device.id()).unwrap();
             
