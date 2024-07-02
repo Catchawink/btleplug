@@ -46,7 +46,7 @@ impl Peripheral {
         //internal: env.new_global_ref(obj)?,
         shared: Arc::new(Shared {
             //device: tokio::sync::Mutex::new(Some(device)),
-            notifications_channel: todo!(),
+            //notifications_channel: todo!(),
             manager,
             uuid: id,
             services: Default::default(),
@@ -166,7 +166,7 @@ impl Peripheral {
 
 struct Shared {
     //device: tokio::sync::Mutex<Option<BluetoothDevice>>,
-    notifications_channel: broadcast::Sender<ValueNotification>,
+    //notifications_channel: broadcast::Sender<ValueNotification>,
     manager: Weak<AdapterManager<Peripheral>>,
     uuid: Uuid,
     services: Mutex<BTreeSet<Service>>,
@@ -384,8 +384,9 @@ impl api::Peripheral for Peripheral {
     }
 
     async fn notifications(&self) -> Result<Pin<Box<dyn Stream<Item = ValueNotification> + Send>>> {
-      let receiver = self.shared.notifications_channel.subscribe();
-      Ok(notifications_stream_from_broadcast_receiver(receiver))
+      todo!()
+      //let receiver = self.shared.notifications_channel.subscribe();
+      //Ok(notifications_stream_from_broadcast_receiver(receiver))
     }
 
     async fn write_descriptor(&self, descriptor: &Descriptor, data: &[u8]) -> Result<()> {
