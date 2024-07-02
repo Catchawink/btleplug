@@ -74,8 +74,8 @@ impl Peripheral {
         Ok(val) => {
           val.into()
         },
-        Err(_) => {
-          log!("GET SERVICES ERROR!");
+        Err(e) => {
+          log!(&format!("Error getting bluetooth services: {:?}", e));
           return;
         },
     };
