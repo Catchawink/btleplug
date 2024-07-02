@@ -26,13 +26,13 @@ pub struct Peripheral {
 }
 
 impl Peripheral {
-  pub(crate) fn new(manager: Weak<AdapterManager<Self>>, id: Uuid) -> Self {
+  pub(crate) fn new(manager: Weak<AdapterManager<Self>>, id: Uuid, name: Option<String>) -> Self {
     //let obj = JPeripheral::new(env, adapter, addr)?;
 
     let properties = Mutex::from(PeripheralProperties {
       address: BDAddr::default(),
       address_type: None,
-      local_name: None,
+      local_name: name,
       tx_power_level: None,
       rssi: None,
       manufacturer_data: HashMap::new(),
@@ -89,8 +89,8 @@ impl Peripheral {
         Ok(val) => {
           val.into()
         },
-        Err(_) => {
-          log!("ERROR GETTING CHARACTERISTICS!");
+        Err(e) => {
+          log!(&format!("Error getting bluetooth characteristics: {:?}", e));
           return;
         },
       };
@@ -104,8 +104,8 @@ impl Peripheral {
             log!("GOT DESCRIPTORS");
             val.into()
           },
-          Err(_) => {
-            log!("FAILED TO GET DESCRIPTORS");
+          Err(e) => {
+            log!(&format!("Error getting bluetooth characteristic descriptors: {:?}", e));
             return;
           }   
         };

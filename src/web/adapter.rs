@@ -77,7 +77,8 @@ impl Central for Adapter {
           for device in devices {
             log!("Found bluetooth device.");
 
-            if let Some(name) = device.name() {
+            let name = device.name();
+            if let Some(name) = &name {
               log!(format!("Bluetooth device name: {}", name));
             }
 
@@ -104,7 +105,7 @@ impl Central for Adapter {
             } else {
               log!(format!("Device not found, updating properties."));
           
-              let peripheral = Peripheral::new(Arc::downgrade(&manager_clone), id);
+              let peripheral = Peripheral::new(Arc::downgrade(&manager_clone), id, name);
               peripheral.update_properties(device).await;
               manager_clone.add_peripheral(peripheral);
               manager_clone.emit(CentralEvent::DeviceDiscovered(id.into()));
