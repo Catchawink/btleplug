@@ -26,7 +26,7 @@ async-trait = "0.1.76"
 log = "0.4.20"
 bitflags = "2.4.1"
 thiserror = "1.0.53"
-uuid = "1.6.1"
+uuid = { version = "1.6.1", features = ["v4"] }
 serde_cr = { package = "serde", version = "1.0.193", features = ["derive"], default-features = false, optional = true }
 serde_bytes = { version = "0.11.13", optional = true }
 dashmap = "5.5.3"
@@ -35,6 +35,7 @@ static_assertions = "1.1.0"
 # rt feature needed for block_on in macOS internal thread
 tokio = { version = "1.35.1", default-features = false, features = ["macros", "sync", "rt"] }
 tokio-stream = { version = "0.1.14", features = ["sync"] }
+bimap = "0.6.3"
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 gloo-console = "0.3.0"

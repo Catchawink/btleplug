@@ -5,7 +5,7 @@ use crate::api::{Central, CentralEvent, ScanFilter};
 use async_trait::async_trait;
 use futures::Stream;
 use gloo_console::{error, log};
-use tokio::task::spawn_blocking;
+use tokio::{sync::Mutex, task::spawn_blocking};
 use wasm_bindgen_futures::{spawn_local, JsFuture};
 use uuid::Uuid;
 use wasm_bindgen::JsValue;
@@ -14,10 +14,12 @@ use std::str::FromStr;
 use js_sys::Array;
 use super::utils::*;
 use futures::channel::oneshot;
+use bimap::BiMap;
 
 #[derive(Clone, Debug)]
 pub struct Adapter {
     manager: Arc<AdapterManager<Peripheral>>,
+    ids: Arc<Mutex<BiMap<Uuid, String>>>
 }
 
 impl Adapter {
@@ -33,7 +35,8 @@ impl Adapter {
           }
 
         Ok(Adapter {
-            manager
+            manager,
+            ids: Arc::new(Mutex::new(Default::default()))
         })
     }
 }
@@ -51,6 +54,7 @@ impl Central for Adapter {
       let (tx, mut rx) = oneshot::channel::<()>();
 
       let manager_clone = self.manager.clone();
+      let ids = self.ids.clone();
       spawn_local(async move {
           let arr = Array::new();
 
@@ -79,8 +83,17 @@ impl Central for Adapter {
 
             log!(format!("Bluetooth device id: {}", device.id()));
             
+            let mut _id: Option<Uuid> = None;
+            if let Some(value) = ids.lock().await.get_by_right(&device.id()) {
+              _id = Some(value.clone());
+            } else {
+              let id = Uuid::new_v4();
+              ids.lock().await.insert(id.clone(), device.id());
+              _id = Some(id);
+            }
+
             // Can't get device address (as on other platforms)--devices have unique IDs instead
-            let id = Uuid::from_str(&device.id()).unwrap();
+            let id = _id.unwrap();
             
             if let Some(mut entry) = manager_clone.peripheral_mut(&id.into()) {
                 entry.value_mut().update_properties(device).await;
