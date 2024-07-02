@@ -84,11 +84,12 @@ impl Central for Adapter {
             log!(format!("Bluetooth device id: {}", device.id()));
             
             let mut _id: Option<Uuid> = None;
-            if let Some(value) = ids.lock().await.get_by_right(&device.id()) {
+            let mut ids = ids.lock().await;
+            if let Some(value) = ids.get_by_right(&device.id()) {
               _id = Some(value.clone());
             } else {
               let id = Uuid::new_v4();
-              ids.lock().await.insert(id.clone(), device.id());
+              ids.insert(id.clone(), device.id());
               _id = Some(id);
             }
 
