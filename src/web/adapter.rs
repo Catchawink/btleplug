@@ -96,20 +96,25 @@ impl Central for Adapter {
             let id = _id.unwrap();
             
             if let Some(mut entry) = manager_clone.peripheral_mut(&id.into()) {
-                entry.value_mut().update_properties(device).await;
-                manager_clone.emit(CentralEvent::DeviceUpdated(id.into()));
+              log!(format!("Device found, updating properties."));
+
+              entry.value_mut().update_properties(device).await;
+              manager_clone.emit(CentralEvent::DeviceUpdated(id.into()));
             } else {
-                let peripheral = Peripheral::new(Arc::downgrade(&manager_clone), id);
-                peripheral.update_properties(device).await;
-                manager_clone.add_peripheral(peripheral);
-                manager_clone.emit(CentralEvent::DeviceDiscovered(id.into()));
+              log!(format!("Device not found, updating properties."));
+          
+              let peripheral = Peripheral::new(Arc::downgrade(&manager_clone), id);
+              peripheral.update_properties(device).await;
+              manager_clone.add_peripheral(peripheral);
+              manager_clone.emit(CentralEvent::DeviceDiscovered(id.into()));
             }
           }
           tx.send(()).unwrap();
       });
 
       rx.await.unwrap();
-
+      log!(format!("Done scanning."));
+          
       //while let Err(_) = rx.try_recv() {
       //  super::utils::sleep(Duration::from_millis(100)).await;
       //}

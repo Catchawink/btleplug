@@ -57,13 +57,15 @@ impl Peripheral {
 
   pub(crate) async fn update_properties(&self, device: BluetoothDevice) {
     let connect_future = device.gatt().unwrap().connect();
+    log!("Connecting to device...");
+
     let server: BluetoothRemoteGattServer = match JsFuture::from(connect_future).await {
       Ok(val) => {
-        log!("CONNECTED");
+        log!("Connected to device.");
         val.into()
       },
       Err(_) => {
-        log!("DISCONNECTED");
+        log!("Failed to connect to device.");
         return;
       }
     };
