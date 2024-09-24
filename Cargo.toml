@@ -63,7 +63,7 @@ windows = { version = "0.52.0", features = ["Devices_Bluetooth", "Devices_Blueto
 
 [target.'cfg(all(target_arch = "wasm32"))'.dependencies.web-sys]
 version = "0.3"
-features = ["Bluetooth", "BluetoothDevice", "BluetoothRemoteGattServer", "BluetoothRemoteGattService", "BluetoothRemoteGattCharacteristic", "BluetoothCharacteristicProperties", "BluetoothRemoteGattDescriptor", "Navigator", "RequestDeviceOptions"]
+features = ["Bluetooth", "BluetoothDevice", "BluetoothRemoteGattServer", "BluetoothRemoteGattService", "BluetoothRemoteGattCharacteristic", "BluetoothCharacteristicProperties", "BluetoothRemoteGattDescriptor", "Navigator", "RequestDeviceOptions", "DomException"]
 
 [dev-dependencies]
 rand = "0.8.5"

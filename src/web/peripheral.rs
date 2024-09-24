@@ -5,7 +5,7 @@ use tokio::{sync::broadcast, task::spawn_blocking};
 use uuid::Uuid;
 use futures::{channel::mpsc::{Receiver, SendError, Sender}, Stream};
 use wasm_bindgen_futures::{spawn_local, JsFuture};
-use web_sys::{BluetoothDevice, BluetoothRemoteGattCharacteristic, BluetoothRemoteGattDescriptor, BluetoothRemoteGattServer, BluetoothRemoteGattService};
+use web_sys::{BluetoothDevice, BluetoothRemoteGattCharacteristic, BluetoothRemoteGattDescriptor, BluetoothRemoteGattServer, BluetoothRemoteGattService, DomException};
 use crate::{
     api::{
         self, BDAddr, CentralEvent, CharPropFlags, Characteristic, Descriptor,
@@ -105,8 +105,14 @@ impl Peripheral {
             val.into()
           },
           Err(e) => {
-            log!(&format!("Error getting bluetooth characteristic descriptors: {:?}", e));
-            return;
+            let exception: DomException = e.into();
+            log!(exception.name());
+            if exception.name() == "NOT_FOUND_ERR" {
+              return;
+            } else {
+              log!(&format!("Error getting bluetooth characteristic descriptors: {:?}", exception));
+              return;
+            }
           }   
         };
 
