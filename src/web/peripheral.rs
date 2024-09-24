@@ -107,7 +107,7 @@ impl Peripheral {
           Err(e) => {
             let exception: DomException = e.into();
             log!(exception.name());
-            if exception.name() == "NOT_FOUND_ERR" {
+            if exception.name() == "NotFoundError" {
               return;
             } else {
               log!(&format!("Error getting bluetooth characteristic descriptors: {:?}", exception));
