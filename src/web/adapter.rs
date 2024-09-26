@@ -1,4 +1,4 @@
-use std::{pin::Pin, sync::Arc, time::Duration};
+use std::{cell::RefCell, collections::HashMap, pin::Pin, sync::Arc, time::Duration};
 use crate::{common::adapter_manager::AdapterManager, Error, Result};
 use super::peripheral::{Peripheral, PeripheralId};
 use crate::api::{Central, CentralEvent, ScanFilter};
@@ -15,6 +15,10 @@ use js_sys::Array;
 use super::utils::*;
 use futures::channel::oneshot;
 use bimap::BiMap;
+
+thread_local! {
+  pub static DEVICES: RefCell<HashMap<String, BluetoothDevice>> = RefCell::new(HashMap::new());
+}
 
 #[derive(Clone, Debug)]
 pub struct Adapter {
@@ -102,13 +106,17 @@ impl Central for Adapter {
             if let Some(mut entry) = manager_clone.peripheral_mut(&uuid.into()) {
               log!(format!("Device found, updating properties."));
 
-              entry.value_mut().update_properties(device).await;
+              entry.value_mut().update_properties().await;
               manager_clone.emit(CentralEvent::DeviceUpdated(uuid.into()));
             } else {
+              DEVICES.with_borrow_mut(|devices| {
+                devices.insert(id.clone(), device);
+              });
+
               log!(format!("Device not found, updating properties."));
           
               let peripheral = Peripheral::new(Arc::downgrade(&manager_clone), uuid, id, name);
-              peripheral.update_properties(device).await;
+              peripheral.update_properties().await;
               manager_clone.add_peripheral(peripheral);
               manager_clone.emit(CentralEvent::DeviceDiscovered(uuid.into()));
             }

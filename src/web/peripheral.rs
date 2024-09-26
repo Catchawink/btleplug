@@ -56,7 +56,10 @@ impl Peripheral {
     }
   }
 
-  pub(crate) async fn update_properties(&self, device: BluetoothDevice) {
+  pub(crate) async fn update_properties(&self) {
+
+    let device = utils::get_bluetooth_device(self.shared.id.clone()).await.unwrap();
+
     let connect_future = device.gatt().unwrap().connect();
     log!("Connecting to device...");
 

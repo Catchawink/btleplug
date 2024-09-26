@@ -14,17 +14,10 @@ pub fn get_bluetooth_api() -> Bluetooth {
 }
 
 pub async fn get_bluetooth_device(device_id: String) -> Option<BluetoothDevice> {
-    let mut options = web_sys::RequestDeviceOptions::new();
-    options.accept_all_devices(true);
-    
-    let devices = vec![BluetoothDevice::from(JsFuture::from(get_bluetooth_api().request_device(&options)).await.map_err(|x| { Error::RuntimeError(format!("Error while trying to request device: {:?}", x)) }).expect("Failed to find devices!"))];
-
-    let device = devices.iter().find(|x| x.id() == device_id);
-    if let Some(device) = device {
-        Some(device.clone())
-    } else {
-        None
-    }
+    super::adapter::DEVICES.with_borrow_mut(|devices| {
+      let device = devices.get_mut(&device_id);
+      device.cloned()
+    })
 }
 
 pub async fn get_bluetooth_device_server(device_id: String) -> Option<BluetoothRemoteGattServer> {
