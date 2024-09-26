@@ -1,25 +1,82 @@
 use std::time::Duration;
 
+use js_sys::Array;
 use uuid::Uuid;
-use web_sys::{Bluetooth, BluetoothDevice, BluetoothRemoteGattCharacteristic};
+use wasm_bindgen_futures::JsFuture;
+use web_sys::{Bluetooth, BluetoothDevice, BluetoothRemoteGattCharacteristic, BluetoothRemoteGattServer, BluetoothRemoteGattService};
 use futures::channel::oneshot;
+use gloo_console::log;
+use crate::Error;
 
 pub fn get_bluetooth_api() -> Bluetooth {
 	let nav = web_sys::window().unwrap().navigator();
 	nav.bluetooth().unwrap()
 }
 
-pub fn get_bluetooth_device(id: Uuid) -> BluetoothDevice {
-	todo!()
+pub async fn get_bluetooth_device(device_id: String) -> Option<BluetoothDevice> {
+    let mut options = web_sys::RequestDeviceOptions::new();
+    options.accept_all_devices(true);
+    
+    let devices = vec![BluetoothDevice::from(JsFuture::from(get_bluetooth_api().request_device(&options)).await.map_err(|x| { Error::RuntimeError(format!("Error while trying to request device: {:?}", x)) }).expect("Failed to find devices!"))];
+
+    let device = devices.iter().find(|x| x.id() == device_id);
+    if let Some(device) = device {
+        Some(device.clone())
+    } else {
+        None
+    }
 }
 
+pub async fn get_bluetooth_device_server(device_id: String) -> Option<BluetoothRemoteGattServer> {
+    let connect_future = get_bluetooth_device(device_id).await?.gatt().unwrap().connect();
+    log!("Connecting to device...");
 
-pub fn get_bluetooth_server(id: Uuid) -> BluetoothDevice {
-	todo!()
+    let server: BluetoothRemoteGattServer = match JsFuture::from(connect_future).await {
+      Ok(val) => {
+        val.into()
+      },
+      Err(_) => {
+        return None;
+      }
+    };
+    Some(server)
 }
 
-pub fn get_bluetooth_characteristic(device_id: Uuid, service_id: Uuid, characteristic_id: Uuid) -> BluetoothRemoteGattCharacteristic {
-	todo!()
+pub async fn get_bluetooth_characteristic(device_id: String, service_id: Uuid, characteristic_id: Uuid) -> Option<BluetoothRemoteGattCharacteristic> {
+  let server = get_bluetooth_device_server(device_id).await?;
+
+  let _services: Array = match JsFuture::from(server.get_primary_services()).await {
+      Ok(val) => {
+        val.into()
+      },
+      Err(e) => {
+        log!(&format!("Error getting bluetooth services: {:?}", e));
+        return None;
+      },
+  };
+  
+  for _service in _services {
+    let _service: BluetoothRemoteGattService = _service.into();
+
+    if Uuid::parse_str(&_service.uuid()).unwrap() != service_id {
+      continue;
+    }
+
+    let _characteristics: Array = match JsFuture::from(_service.get_characteristics()).await {
+      Ok(val) => {
+        val.into()
+      },
+      Err(e) => {
+        log!(&format!("Error getting bluetooth characteristics: {:?}", e));
+        return None;
+      },
+    };
+
+    let mut _characteristics = _characteristics.iter().map(|x| Into::<BluetoothRemoteGattCharacteristic>::into(x));
+    let characteristic = _characteristics.find(|x| Uuid::parse_str(&x.uuid()).unwrap() == characteristic_id);
+    return characteristic;
+  }
+  None
 }
 
 pub async fn sleep(duration: Duration) {

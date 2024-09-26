@@ -26,7 +26,7 @@ pub struct Peripheral {
 }
 
 impl Peripheral {
-  pub(crate) fn new(manager: Weak<AdapterManager<Self>>, id: Uuid, name: Option<String>) -> Self {
+  pub(crate) fn new(manager: Weak<AdapterManager<Self>>, uuid: Uuid, id: String, name: Option<String>) -> Self {
     //let obj = JPeripheral::new(env, adapter, addr)?;
 
     let properties = Mutex::from(PeripheralProperties {
@@ -48,7 +48,8 @@ impl Peripheral {
             //device: tokio::sync::Mutex::new(Some(device)),
             //notifications_channel: todo!(),
             manager,
-            uuid: id,
+            uuid: uuid,
+            id: id,
             services: Default::default(),
             properties: properties,
         }),
@@ -175,6 +176,7 @@ struct Shared {
     //notifications_channel: broadcast::Sender<ValueNotification>,
     manager: Weak<AdapterManager<Peripheral>>,
     uuid: Uuid,
+    id: String,
     services: Mutex<BTreeSet<Service>>,
     properties: Mutex<PeripheralProperties>,
     //message_sender: Sender<CoreBluetoothMessage>,
@@ -335,28 +337,28 @@ impl api::Peripheral for Peripheral {
         data: &[u8],
         mut write_type: WriteType,
     ) -> Result<()> {
-      let device_id = self.id().0;
+      let device_id = self.shared.id.clone();
       let service_id = characteristic.service_uuid.clone();
       let characterstic_id = characteristic.uuid.clone();
       let mut data = data.to_vec();
       spawn_local(async move {
-		    JsFuture::from(utils::get_bluetooth_characteristic(device_id, service_id, characterstic_id).write_value_with_response_with_u8_array(&mut data)).await.unwrap();
+		    JsFuture::from(utils::get_bluetooth_characteristic(device_id, service_id, characterstic_id).await.unwrap().write_value_with_response_with_u8_array(&mut data)).await.unwrap();
       });
       Ok(())
     }
 
     async fn read(&self, characteristic: &Characteristic) -> Result<Vec<u8>> {
-      let device_id = self.id().0;
+      let device_id = self.shared.id.clone();
       let service_id = characteristic.service_uuid.clone();
       let characterstic_id = characteristic.uuid.clone();
       spawn_local(async move {
-		    let data = JsFuture::from(utils::get_bluetooth_characteristic(device_id, service_id, characterstic_id).read_value()).await.unwrap();
+		    let data = JsFuture::from(utils::get_bluetooth_characteristic(device_id, service_id, characterstic_id).await.unwrap().read_value()).await.unwrap();
       });
       todo!()
     }
 
     async fn subscribe(&self, characteristic: &Characteristic) -> Result<()> {
-      let device_id = self.id().0;
+      let device_id = self.shared.id.clone();
       let service_id = characteristic.service_uuid.clone();
       let characterstic_id = characteristic.uuid.clone();
       spawn_local(async move {
@@ -365,7 +367,7 @@ impl api::Peripheral for Peripheral {
 
         }) as Box<dyn FnMut()>);
 
-		    let characteristic = utils::get_bluetooth_characteristic(device_id, service_id, characterstic_id);
+		    let characteristic = utils::get_bluetooth_characteristic(device_id, service_id, characterstic_id).await.unwrap();
         JsFuture::from(characteristic.start_notifications()).await.unwrap();
         let _ = characteristic.add_event_listener_with_callback("characteristicvaluechanged", f.as_ref().unchecked_ref());
         f.forget();
@@ -375,13 +377,13 @@ impl api::Peripheral for Peripheral {
     }
 
     async fn unsubscribe(&self, characteristic: &Characteristic) -> Result<()> {
-      let device_id = self.id().0;
+      let device_id = self.shared.id.clone();
       let service_id = characteristic.service_uuid.clone();
       let characterstic_id = characteristic.uuid.clone();
       spawn_local(async move {
 
 
-		    let characteristic = utils::get_bluetooth_characteristic(device_id, service_id, characterstic_id);
+		    let characteristic = utils::get_bluetooth_characteristic(device_id, service_id, characterstic_id).await.unwrap();
         JsFuture::from(characteristic.stop_notifications()).await.unwrap();
         //let _ = characteristic.remove_event_listener_with_callback("characteristicvaluechanged", f.as_ref().unchecked_ref());
         
@@ -396,13 +398,13 @@ impl api::Peripheral for Peripheral {
     }
 
     async fn write_descriptor(&self, descriptor: &Descriptor, data: &[u8]) -> Result<()> {
-      let device_id = self.id().0;
+      let device_id = self.shared.id.clone();
       let service_id = descriptor.service_uuid.clone();
       let characterstic_id = descriptor.characteristic_uuid.clone();
       spawn_local(async move {
 
 
-		    let characteristic = utils::get_bluetooth_characteristic(device_id, service_id, characterstic_id);
+		    let characteristic = utils::get_bluetooth_characteristic(device_id, service_id, characterstic_id).await.unwrap();
         let descriptors: Array = JsFuture::from(characteristic.get_descriptors()).await.unwrap().into();
 
         //let _ = characteristic.remove_event_listener_with_callback("characteristicvaluechanged", f.as_ref().unchecked_ref());
@@ -412,14 +414,14 @@ impl api::Peripheral for Peripheral {
     }
 
     async fn read_descriptor(&self, descriptor: &Descriptor) -> Result<Vec<u8>> {
-      let device_id = self.id().0;
+      let device_id = self.shared.id.clone();
       let service_id = descriptor.service_uuid.clone();
       let characterstic_id = descriptor.characteristic_uuid.clone();
       let descriptor_id = descriptor.uuid.clone();
       spawn_local(async move {
 
 
-		    let characteristic = utils::get_bluetooth_characteristic(device_id, service_id, characterstic_id);
+		    let characteristic = utils::get_bluetooth_characteristic(device_id, service_id, characterstic_id).await.unwrap();
         let descriptors: Array = JsFuture::from(characteristic.get_descriptors()).await.unwrap().into();
         if let Some(descriptor) = descriptors.iter().map(|x| Into::<BluetoothRemoteGattDescriptor>::into(x)).find(|x| Uuid::from_str(&x.uuid()).unwrap() == descriptor_id) {
           let data_view: DataView = JsFuture::from(descriptor.read_value()).await.unwrap().into();

@@ -84,31 +84,33 @@ impl Central for Adapter {
 
             log!(format!("Bluetooth device id: {}", device.id()));
             
-            let mut _id: Option<Uuid> = None;
+            let id = device.id();
+            
+            let mut _uuid: Option<Uuid> = None;
             let mut ids = ids.lock().await;
-            if let Some(value) = ids.get_by_right(&device.id()) {
-              _id = Some(value.clone());
+            let uuid = if let Some(value) = ids.get_by_right(&device.id()) {
+              value.clone()
             } else {
               let id = Uuid::new_v4();
               ids.insert(id.clone(), device.id());
-              _id = Some(id);
-            }
+              id
+            };
 
             // Can't get device address (as on other platforms)--devices have unique IDs instead
-            let id = _id.unwrap();
+            //let id = _id.unwrap();
             
-            if let Some(mut entry) = manager_clone.peripheral_mut(&id.into()) {
+            if let Some(mut entry) = manager_clone.peripheral_mut(&uuid.into()) {
               log!(format!("Device found, updating properties."));
 
               entry.value_mut().update_properties(device).await;
-              manager_clone.emit(CentralEvent::DeviceUpdated(id.into()));
+              manager_clone.emit(CentralEvent::DeviceUpdated(uuid.into()));
             } else {
               log!(format!("Device not found, updating properties."));
           
-              let peripheral = Peripheral::new(Arc::downgrade(&manager_clone), id, name);
+              let peripheral = Peripheral::new(Arc::downgrade(&manager_clone), uuid, id, name);
               peripheral.update_properties(device).await;
               manager_clone.add_peripheral(peripheral);
-              manager_clone.emit(CentralEvent::DeviceDiscovered(id.into()));
+              manager_clone.emit(CentralEvent::DeviceDiscovered(uuid.into()));
             }
           }
           tx.send(()).unwrap();
