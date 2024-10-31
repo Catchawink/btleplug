@@ -345,7 +345,7 @@ impl api::Peripheral for Peripheral {
       let characterstic_id = characteristic.uuid.clone();
       let mut data = data.to_vec();
       spawn_local(async move {
-		    JsFuture::from(utils::get_bluetooth_characteristic(device_id, service_id, characterstic_id).await.unwrap().write_value_with_response_with_u8_array(&mut data)).await.unwrap();
+		    JsFuture::from(utils::get_bluetooth_characteristic(device_id, service_id, characterstic_id).await.unwrap().write_value_with_response_with_u8_array(&data.as_slice().into()).unwrap()).await.unwrap();
       });
       Ok(())
     }
