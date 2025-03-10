@@ -18,8 +18,6 @@ use jni_utils::{
 };
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
-#[cfg(feature = "serde")]
-use serde_cr as serde;
 use std::{
     collections::BTreeSet,
     convert::TryFrom,
@@ -35,8 +33,7 @@ use super::jni::{
 use jni::objects::JClass;
 #[cfg_attr(
     feature = "serde",
-    derive(Serialize, Deserialize),
-    serde(crate = "serde_cr")
+    derive(Serialize, Deserialize)
 )]
 #[derive(Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub struct PeripheralId(pub(super) BDAddr);

@@ -5,7 +5,7 @@ authors = ["Nonpolynomial, LLC <kyle@nonpolynomial.com>"]
 license = "MIT/Apache-2.0/BSD-3-Clause"
 repository = "https://github.com/deviceplug/btleplug"
 homepage = "https://github.com/deviceplug/btleplug"
-edition = "2021"
+edition = "2024"
 description = """
 A Cross-Platform Rust Bluetooth Low Energy (BLE) GATT
 library.
@@ -19,15 +19,16 @@ name = "btleplug"
 path = "src/lib.rs"
 
 [features]
-serde = ["uuid/serde", "serde_cr", "serde_bytes"]
+default = ["serde"]
+serde = ["uuid/serde", "dep:serde", "serde_bytes"]
 
-[dependencies]
+[target.'cfg(not(target_arch = "xtensa"))'.dependencies]
 async-trait = "0.1.76"
 log = "0.4.20"
 bitflags = "2.4.1"
 thiserror = "1.0.53"
 uuid = { version = "1.6.1", features = ["v4"] }
-serde_cr = { package = "serde", version = "1.0.193", features = ["derive"], default-features = false, optional = true }
+serde = { version = "1.0.193", features = ["derive"], default-features = false, optional = true }
 serde_bytes = { version = "0.11.13", optional = true }
 dashmap = "5.5.3"
 futures = "0.3.30"
@@ -36,13 +37,17 @@ static_assertions = "1.1.0"
 tokio = { version = "1.35.1", default-features = false, features = ["macros", "sync", "rt"] }
 tokio-stream = { version = "0.1.14", features = ["sync"] }
 bimap = "0.6.3"
+enumflags2 = { version = "0.7", features = ["serde"] }
+serde_with = "3.12.0"
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
+tauri-sys = { git = "https://github.com/Catchawink/tauri-sys.git", branch = "v2", features = ["all"] }
 gloo-console = "0.3.0"
 wasm-bindgen = "0.2.92"
 wasm-bindgen-futures = "0.4.42"
 js-sys = "0.3.69"
 async-std = { version = "1.12.0", features = ["attributes", "tokio1"] }
+serde_json = "1.0.109"
 
 [target.'cfg(target_os = "linux")'.dependencies]
 dbus = "0.9.7"

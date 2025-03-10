@@ -2,11 +2,22 @@ use std::time::Duration;
 
 use js_sys::Array;
 use uuid::Uuid;
+use wasm_bindgen::JsValue;
 use wasm_bindgen_futures::JsFuture;
-use web_sys::{Bluetooth, BluetoothDevice, BluetoothRemoteGattCharacteristic, BluetoothRemoteGattServer, BluetoothRemoteGattService};
+use web_sys::{window, Bluetooth, BluetoothDevice, BluetoothRemoteGattCharacteristic, BluetoothRemoteGattServer, BluetoothRemoteGattService};
 use futures::channel::oneshot;
 use gloo_console::log;
 use crate::Error;
+
+pub fn is_tauri() -> bool {
+  if js_sys::Reflect::get(&window().unwrap(), &JsValue::from_str("__TAURI__")).unwrap().is_object() {
+      return true;
+  }
+  
+  let navigator = window().unwrap().navigator();
+  let user_agent = navigator.user_agent().unwrap_or_else(|_| String::new());
+  user_agent.contains("Tauri")
+}
 
 pub fn get_bluetooth_api() -> Bluetooth {
 	let nav = web_sys::window().unwrap().navigator();

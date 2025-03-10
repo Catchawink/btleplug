@@ -30,8 +30,6 @@ use futures::stream::Stream;
 use log::{trace, warn};
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
-#[cfg(feature = "serde")]
-use serde_cr as serde;
 use std::{
     collections::{BTreeSet, HashMap, HashSet},
     convert::TryInto,
@@ -48,8 +46,7 @@ use windows::Devices::Bluetooth::{Advertisement::*, BluetoothAddressType};
 
 #[cfg_attr(
     feature = "serde",
-    derive(Serialize, Deserialize),
-    serde(crate = "serde_cr")
+    derive(Serialize, Deserialize)
 )]
 #[derive(Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub struct PeripheralId(BDAddr);

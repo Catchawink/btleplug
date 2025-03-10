@@ -199,11 +199,10 @@ impl BDAddr {
 pub mod serde {
     use std::fmt::{self, Write as _};
 
-    use serde::{
+    use ::serde::{
         de::{Deserialize, Deserializer, Error as DeError, Visitor},
         ser::{Serialize, Serializer},
     };
-    use serde_cr as serde;
 
     use super::*;
 

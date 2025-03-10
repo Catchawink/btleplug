@@ -30,8 +30,6 @@ use bitflags::bitflags;
 use futures::stream::Stream;
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
-#[cfg(feature = "serde")]
-use serde_cr as serde;
 use std::{
     collections::{BTreeSet, HashMap},
     fmt::{self, Debug, Display, Formatter},
@@ -45,8 +43,7 @@ use crate::platform::PeripheralId;
 
 #[cfg_attr(
     feature = "serde",
-    derive(Serialize, Deserialize),
-    serde(crate = "serde_cr")
+    derive(Serialize, Deserialize)
 )]
 #[derive(Debug, Clone, Copy, Eq, PartialEq, Default)]
 pub enum AddressType {
@@ -170,8 +167,7 @@ impl Display for Descriptor {
 /// it.
 #[cfg_attr(
     feature = "serde",
-    derive(Serialize, Deserialize),
-    serde(crate = "serde_cr")
+    derive(Serialize, Deserialize)
 )]
 #[derive(Debug, Default, Clone)]
 pub struct PeripheralProperties {
@@ -198,8 +194,7 @@ pub struct PeripheralProperties {
 
 #[cfg_attr(
     feature = "serde",
-    derive(Serialize, Deserialize),
-    serde(crate = "serde_cr")
+    derive(Serialize, Deserialize)
 )]
 /// The filter used when scanning for BLE devices.
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
@@ -298,7 +293,6 @@ pub trait Peripheral: Send + Sync + Clone + Debug {
 #[cfg_attr(
     feature = "serde",
     derive(Serialize, Deserialize),
-    serde(crate = "serde_cr")
 )]
 #[derive(Debug, Clone)]
 pub enum CentralEvent {

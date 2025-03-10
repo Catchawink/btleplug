@@ -1,9 +1,10 @@
 use std::{collections::{BTreeSet, HashMap}, default, fmt::{self, Debug, Display, Formatter}, pin::Pin, str::FromStr, sync::{Arc, Mutex}};
 use async_trait::async_trait;
 use js_sys::{Array, DataView};
+use serde::{Deserialize, Serialize};
 use tokio::{sync::broadcast, task::spawn_blocking};
 use uuid::Uuid;
-use futures::{channel::mpsc::{Receiver, SendError, Sender}, Stream};
+use futures::{channel::{mpsc::{Receiver, SendError, Sender}, oneshot}, Stream};
 use wasm_bindgen_futures::{spawn_local, JsFuture};
 use web_sys::{BluetoothDevice, BluetoothRemoteGattCharacteristic, BluetoothRemoteGattDescriptor, BluetoothRemoteGattServer, BluetoothRemoteGattService, DomException};
 use crate::{
@@ -18,7 +19,7 @@ use std::sync::Weak;
 use wasm_bindgen::{closure::Closure, JsCast, JsValue};
 use gloo_console::log;
 
-use super::utils;
+use super::{tauri, utils::{self, is_tauri}};
 
 #[derive(Clone)]
 pub struct Peripheral {
@@ -26,7 +27,7 @@ pub struct Peripheral {
 }
 
 impl Peripheral {
-  pub(crate) fn new(manager: Weak<AdapterManager<Self>>, uuid: Uuid, id: String, name: Option<String>) -> Self {
+  pub(crate) fn new(manager: Weak<AdapterManager<Self>>, uuid: Uuid, id: String, name: Option<String>, services: Vec<Uuid>) -> Self {
     //let obj = JPeripheral::new(env, adapter, addr)?;
 
     let properties = Mutex::from(PeripheralProperties {
@@ -233,7 +234,25 @@ impl api::Peripheral for Peripheral {
     }
 
     async fn connect(&self) -> Result<()> {
-      // Currently the connection simply persists
+      if is_tauri() {
+        let address = self.address().to_string();
+
+        let (tx, rx) = oneshot::channel::<Vec<crate::models::Service>>();
+        spawn_local(async move {
+          let services = tauri::connect::<fn()>(address, None).await.expect("Failed to connect to BLE device!");
+          
+          tx.send(services).unwrap();
+        });
+
+        let _services = rx.await.unwrap();
+        
+        let mut services = self.shared.services.lock().unwrap();
+        for service in _services {
+          services.insert(service.into());
+        }
+      } else {
+        // Currently the connection simply persists
+      }
       Ok(())
     }
 
@@ -440,8 +459,7 @@ impl api::Peripheral for Peripheral {
 
 #[cfg_attr(
     feature = "serde",
-    derive(Serialize, Deserialize),
-    serde(crate = "serde_cr")
+    derive(Serialize, Deserialize)
 )]
 #[derive(Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub struct PeripheralId(Uuid);

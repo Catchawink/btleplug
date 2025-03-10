@@ -91,28 +91,34 @@
 #[cfg(any(target_os = "macos", target_os = "ios"))]
 extern crate cocoa;
 
+#[cfg(not(target_arch = "xtensa"))]
 use crate::api::ParseBDAddrError;
 use std::result;
 use std::time::Duration;
 
+#[cfg(not(target_arch = "xtensa"))]
 pub mod api;
 #[cfg(target_arch = "wasm32")]
 mod web;
 #[cfg(target_os = "linux")]
 mod bluez;
-#[cfg(not(target_os = "linux"))]
+#[cfg(not(any(target_os = "linux", target_arch = "xtensa")))]
 mod common;
 #[cfg(any(target_os = "macos", target_os = "ios"))]
 mod corebluetooth;
 #[cfg(target_os = "android")]
 mod droidplug;
+#[cfg(not(target_arch = "xtensa"))]
 pub mod platform;
 #[cfg(feature = "serde")]
 pub mod serde;
 #[cfg(target_os = "windows")]
 mod winrtble;
+#[cfg(not(target_arch = "xtensa"))]
+pub mod models;
 
 /// The main error type returned by most methods in btleplug.
+#[cfg(not(target_arch = "xtensa"))]
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
     #[error("Permission denied")]
@@ -152,5 +158,6 @@ pub enum Error {
     Other(Box<dyn std::error::Error + Send + Sync>),
 }
 
+#[cfg(not(target_arch = "xtensa"))]
 /// Convenience type for a result using the btleplug [`Error`] type.
 pub type Result<T> = result::Result<T, Error>;
