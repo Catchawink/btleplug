@@ -26,8 +26,6 @@ use futures::stream::{Stream, StreamExt};
 use log::*;
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
-#[cfg(feature = "serde")]
-use serde_cr as serde;
 use std::sync::Weak;
 use std::{
     collections::{BTreeSet, HashMap},
@@ -42,7 +40,6 @@ use uuid::Uuid;
 #[cfg_attr(
     feature = "serde",
     derive(Serialize, Deserialize),
-    serde(crate = "serde_cr")
 )]
 #[derive(Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub struct PeripheralId(Uuid);

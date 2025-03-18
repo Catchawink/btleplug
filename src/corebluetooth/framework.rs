@@ -120,7 +120,7 @@ pub mod cb {
     #[cfg_attr(target_os = "macos", link(name = "AppKit", kind = "framework"))]
     #[link(name = "Foundation", kind = "framework")]
     #[link(name = "CoreBluetooth", kind = "framework")]
-    extern "C" {
+    unsafe extern "C" {
         pub fn dispatch_queue_create(
             label: *const c_char,
             attr: dispatch_queue_attr_t,
@@ -131,7 +131,7 @@ pub mod cb {
         use super::*;
 
         #[link(name = "CoreBluetooth", kind = "framework")]
-        extern "C" {
+        unsafe extern "C" {
             pub static CBAdvertisementDataManufacturerDataKey: id;
             pub static CBAdvertisementDataServiceDataKey: id;
             pub static CBAdvertisementDataServiceUUIDsKey: id;
