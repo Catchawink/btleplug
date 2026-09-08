@@ -11,7 +11,7 @@ use uuid::Uuid;
 use wasm_bindgen::JsValue;
 use web_sys::{BluetoothDevice, BluetoothRemoteGattCharacteristic, BluetoothRemoteGattServer, BluetoothRemoteGattService, RequestDeviceOptions};
 use std::str::FromStr;
-use js_sys::Array;
+use js_sys::{Array, JsString};
 use super::utils::*;
 use futures::channel::oneshot;
 use bimap::{BiHashMap, BiMap};
@@ -108,13 +108,13 @@ impl Central for Adapter {
         let manager_clone = self.manager.clone();
         let ids = self.ids.clone();
         spawn_local(async move {
-            let arr = Array::new();
+            let mut arr: Vec<js_sys::JsString> = Vec::new();
   
-            let mut options = web_sys::RequestDeviceOptions::new();
+            let options = web_sys::RequestDeviceOptions::new();
             options.set_accept_all_devices(true);
   
             for service_uuid in filter.services {
-              arr.push(&JsValue::from(service_uuid.to_string()));
+              arr.push(js_sys::JsString::from(service_uuid.to_string()));
             }
             options.set_optional_services(&arr);
   

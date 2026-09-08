@@ -35,12 +35,15 @@ futures = "0.3.30"
 static_assertions = "1.1.0"
 # rt feature needed for block_on in macOS internal thread
 tokio = { version = "1.35.1", default-features = false, features = ["macros", "sync", "rt"] }
-tokio-stream = { version = "0.1.14", features = ["sync"] }
 bimap = "0.6.3"
 enumflags2 = { version = "0.7", features = ["serde"] }
 serde_with = "3.12.0"
 
+[target.'cfg(all(not(target_arch = "wasm32"), not(target_arch = "xtensa")))'.dependencies]
+tokio-stream = { version = "0.1.14", features = ["sync"] }
+
 [target.'cfg(target_arch = "wasm32")'.dependencies]
+tokio-stream = { version = "0.1.14", default-features = false, features = ["sync"] }
 tauri-sys = { git = "https://github.com/Catchawink/tauri-sys.git", branch = "v2", features = ["all"] }
 gloo-console = "0.3.0"
 wasm-bindgen = "0.2.92"

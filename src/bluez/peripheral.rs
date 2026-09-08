@@ -8,8 +8,6 @@ use futures::future::{join_all, ready};
 use futures::stream::{Stream, StreamExt};
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
-#[cfg(feature = "serde")]
-use serde_cr as serde;
 use std::collections::{BTreeSet, HashMap};
 use std::fmt::{self, Display, Formatter};
 use std::pin::Pin;
@@ -40,11 +38,7 @@ struct ServiceInternal {
     characteristics: HashMap<Uuid, CharacteristicInternal>,
 }
 
-#[cfg_attr(
-    feature = "serde",
-    derive(Serialize, Deserialize),
-    serde(crate = "serde_cr")
-)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub struct PeripheralId(pub(crate) DeviceId);
 

@@ -49,9 +49,9 @@ pub async fn get_bluetooth_device_server(device_id: String) -> Option<BluetoothR
 pub async fn get_bluetooth_characteristic(device_id: String, service_id: Uuid, characteristic_id: Uuid) -> Option<BluetoothRemoteGattCharacteristic> {
   let server = get_bluetooth_device_server(device_id).await?;
 
-  let _services: Array = match JsFuture::from(server.get_primary_services()).await {
+  let _services = match JsFuture::from(server.get_primary_services()).await {
       Ok(val) => {
-        val.into()
+        val
       },
       Err(e) => {
         log!(&format!("Error getting bluetooth services: {:?}", e));
@@ -66,9 +66,9 @@ pub async fn get_bluetooth_characteristic(device_id: String, service_id: Uuid, c
       continue;
     }
 
-    let _characteristics: Array = match JsFuture::from(_service.get_characteristics()).await {
+    let _characteristics = match JsFuture::from(_service.get_characteristics()).await {
       Ok(val) => {
-        val.into()
+        val
       },
       Err(e) => {
         log!(&format!("Error getting bluetooth characteristics: {:?}", e));

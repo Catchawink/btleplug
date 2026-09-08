@@ -75,9 +75,9 @@ impl Peripheral {
       }
     };
 
-    let _services: Array = match JsFuture::from(server.get_primary_services()).await {
+    let _services = match JsFuture::from(server.get_primary_services()).await {
         Ok(val) => {
-          val.into()
+          val
         },
         Err(e) => {
           log!(&format!("Error getting bluetooth services: {:?}", e));
@@ -90,9 +90,9 @@ impl Peripheral {
     for _service in _services {
       let _service: BluetoothRemoteGattService = _service.into();
 
-      let _characteristics: Array = match JsFuture::from(_service.get_characteristics()).await {
+      let _characteristics = match JsFuture::from(_service.get_characteristics()).await {
         Ok(val) => {
-          val.into()
+          val
         },
         Err(e) => {
           log!(&format!("Error getting bluetooth characteristics: {:?}", e));
@@ -104,19 +104,19 @@ impl Peripheral {
 
       let mut characteristics = BTreeSet::<Characteristic>::default();
       for _characteristic in _characteristics {
-        let _descriptors: Array = match JsFuture::from(_characteristic.get_descriptors()).await {
+        let _descriptors: Array<BluetoothRemoteGattDescriptor> = match JsFuture::from(_characteristic.get_descriptors()).await {
           Ok(val) => {
             log!("GOT DESCRIPTORS");
-            val.into()
+            val
           },
           Err(e) => {
             let exception: DomException = e.into();
             log!(exception.name());
             if exception.name() == "NotFoundError" {
-              Array::new()
+              Array::new_typed()
             } else {
               log!(&format!("Error getting bluetooth characteristic descriptors: {:?}", exception));
-              Array::new()
+              Array::new_typed()
             }
           }   
         };
@@ -427,7 +427,7 @@ impl api::Peripheral for Peripheral {
 
 
 		    let characteristic = utils::get_bluetooth_characteristic(device_id, service_id, characterstic_id).await.unwrap();
-        let descriptors: Array = JsFuture::from(characteristic.get_descriptors()).await.unwrap().into();
+        let descriptors = JsFuture::from(characteristic.get_descriptors()).await.unwrap();
 
         //let _ = characteristic.remove_event_listener_with_callback("characteristicvaluechanged", f.as_ref().unchecked_ref());
         
@@ -444,7 +444,7 @@ impl api::Peripheral for Peripheral {
 
 
 		    let characteristic = utils::get_bluetooth_characteristic(device_id, service_id, characterstic_id).await.unwrap();
-        let descriptors: Array = JsFuture::from(characteristic.get_descriptors()).await.unwrap().into();
+        let descriptors = JsFuture::from(characteristic.get_descriptors()).await.unwrap();
         if let Some(descriptor) = descriptors.iter().map(|x| Into::<BluetoothRemoteGattDescriptor>::into(x)).find(|x| Uuid::from_str(&x.uuid()).unwrap() == descriptor_id) {
           let data_view: DataView = JsFuture::from(descriptor.read_value()).await.unwrap().into();
           data_view.buffer();

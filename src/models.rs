@@ -39,9 +39,7 @@ impl PartialEq for BleDevice {
 }
 
 impl BleDevice {
-    pub async fn from_peripheral<P: crate::api::Peripheral>(
-        peripheral: &P,
-    ) -> crate::Result<Self> {
+    pub async fn from_peripheral<P: crate::api::Peripheral>(peripheral: &P) -> crate::Result<Self> {
         #[cfg(target_vendor = "apple")]
         let address = peripheral.id().to_string();
         #[cfg(not(target_vendor = "apple"))]
@@ -72,7 +70,8 @@ impl From<crate::api::Service> for Service {
             uuid: service.uuid,
             characteristics: service
                 .characteristics
-                .iter().cloned()
+                .iter()
+                .cloned()
                 .map(Characteristic::from)
                 .collect(),
         }
@@ -80,23 +79,24 @@ impl From<crate::api::Service> for Service {
 }
 
 impl Into<crate::api::Service> for Service {
-	fn into(self) -> crate::api::Service {
-		crate::api::Service {
-			uuid: self.uuid,
-			primary: true,
-			characteristics: self
-				.characteristics
-				.iter().cloned()
-				.map(Characteristic::into)
-				.collect(),
-		}
-	}
+    fn into(self) -> crate::api::Service {
+        crate::api::Service {
+            uuid: self.uuid,
+            primary: true,
+            characteristics: self
+                .characteristics
+                .iter()
+                .cloned()
+                .map(Characteristic::into)
+                .collect(),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct Characteristic {
     pub uuid: Uuid,
-	pub service_uuid: Uuid,
+    pub service_uuid: Uuid,
     pub descriptors: Vec<Uuid>,
     pub properties: BitFlags<CharProps>,
 }
@@ -105,7 +105,7 @@ impl From<crate::api::Characteristic> for Characteristic {
     fn from(characteristic: crate::api::Characteristic) -> Self {
         Self {
             uuid: characteristic.uuid,
-			service_uuid: characteristic.service_uuid,
+            service_uuid: characteristic.service_uuid,
             descriptors: characteristic.descriptors.iter().map(|d| d.uuid).collect(),
             properties: from_flags(characteristic.properties),
         }
@@ -113,14 +113,22 @@ impl From<crate::api::Characteristic> for Characteristic {
 }
 
 impl Into<crate::api::Characteristic> for Characteristic {
-	fn into(self) -> crate::api::Characteristic {
-		crate::api::Characteristic {
-			uuid: self.uuid,
-			service_uuid: self.service_uuid,
-			properties: todo!(),
-			descriptors: todo!(),
-		}
-	}
+    fn into(self) -> crate::api::Characteristic {
+        crate::api::Characteristic {
+            uuid: self.uuid,
+            service_uuid: self.service_uuid,
+            properties: into_flags(self.properties),
+            descriptors: self
+                .descriptors
+                .into_iter()
+                .map(|d| crate::api::Descriptor {
+                    uuid: d,
+                    characteristic_uuid: self.uuid,
+                    service_uuid: self.service_uuid,
+                })
+                .collect(),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy, Deserialize, Serialize)]
@@ -164,8 +172,10 @@ impl Into<crate::api::CharPropFlags> for CharProps {
             CharProps::Write => crate::api::CharPropFlags::WRITE,
             CharProps::Notify => crate::api::CharPropFlags::NOTIFY,
             CharProps::Indicate => crate::api::CharPropFlags::INDICATE,
-            CharProps::AuthenticatedSignedWrites => crate::api::CharPropFlags::AUTHENTICATED_SIGNED_WRITES,
-           	CharProps::ExtendedProperties => crate::api::CharPropFlags::EXTENDED_PROPERTIES,
+            CharProps::AuthenticatedSignedWrites => {
+                crate::api::CharPropFlags::AUTHENTICATED_SIGNED_WRITES
+            }
+            CharProps::ExtendedProperties => crate::api::CharPropFlags::EXTENDED_PROPERTIES,
             _ => unreachable!(),
         }
     }

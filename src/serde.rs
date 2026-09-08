@@ -4,7 +4,7 @@
 //!
 //! [`with` annotation]: https://serde.rs/attributes.html#field-attributes
 
-/// Different de-/serialization formats for [`crate::api::BDAddr`].
-pub mod bdaddr {
-    pub use crate::api::bdaddr::serde::*;
-}
+// Different de-/serialization formats for [`crate::api::BDAddr`].
+//pub mod bdaddr {
+//    pub use crate::api::bdaddr::serde::*;
+//}
