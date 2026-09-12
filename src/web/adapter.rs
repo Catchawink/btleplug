@@ -34,7 +34,7 @@ impl Adapter {
         if !is_tauri() {
           let nav = web_sys::window().unwrap().navigator();
           if nav.bluetooth().is_none() {
-            log!("WebBluetooth is not supported on this browser");
+            error!("WebBluetooth is not supported on this browser");
             return Err(Error::NotSupported(
               "WebBluetooth is not supported on this browser".to_string(),
             ));

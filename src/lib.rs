@@ -93,7 +93,9 @@ extern crate cocoa;
 
 #[cfg(not(target_arch = "xtensa"))]
 use crate::api::ParseBDAddrError;
+#[cfg(not(target_arch = "xtensa"))]
 use std::result;
+#[cfg(not(target_arch = "xtensa"))]
 use std::time::Duration;
 
 #[cfg(not(target_arch = "xtensa"))]
