@@ -217,7 +217,7 @@ pub enum WriteType {
 /// Peripheral is the device that you would like to communicate with (the "server" of BLE). This
 /// struct contains both the current state of the device (its properties, characteristics, etc.)
 /// as well as functions for communication.
-#[async_trait(?Send)]
+#[async_trait]
 pub trait Peripheral: Send + Sync + Clone + Debug {
     /// Returns the unique identifier of the peripheral.
     fn id(&self) -> PeripheralId;
@@ -319,7 +319,7 @@ pub enum CentralEvent {
 
 /// Central is the "client" of BLE. It's able to scan for and establish connections to peripherals.
 /// A Central can be obtained from [`Manager::adapters()`].
-#[async_trait(?Send)]
+#[async_trait]
 pub trait Central: Send + Sync + Clone {
     type Peripheral: Peripheral;
 
@@ -374,7 +374,7 @@ pub trait Central: Send + Sync + Clone {
 /// # Ok(())
 /// # }
 /// ```
-#[async_trait(?Send)]
+#[async_trait]
 pub trait Manager {
     /// The concrete type of the [`Central`] implementation.
     type Adapter: Central;

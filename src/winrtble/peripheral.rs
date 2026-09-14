@@ -327,7 +327,7 @@ impl Debug for Peripheral {
     }
 }
 
-#[async_trait(?Send)]
+#[async_trait]
 impl ApiPeripheral for Peripheral {
     fn id(&self) -> PeripheralId {
         PeripheralId(self.shared.address)

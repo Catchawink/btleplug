@@ -26,7 +26,7 @@ impl Manager {
     }
 }
 
-#[async_trait(?Send)]
+#[async_trait]
 impl api::Manager for Manager {
     type Adapter = Adapter;
 

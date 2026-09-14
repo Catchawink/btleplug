@@ -59,7 +59,7 @@ fn add_or_get_uuid(ids: Arc<std::sync::Mutex<BiHashMap<Uuid, String>>>, device_i
   }
 }
 
-#[async_trait(?Send)]
+#[async_trait]
 impl Central for Adapter {
 	type Peripheral = Peripheral;
 

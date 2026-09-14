@@ -123,7 +123,7 @@ impl Adapter {
     }
 }
 
-#[async_trait(?Send)]
+#[async_trait]
 impl Central for Adapter {
     type Peripheral = Peripheral;
 
