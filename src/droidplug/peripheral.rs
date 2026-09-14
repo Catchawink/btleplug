@@ -203,7 +203,7 @@ impl Debug for Peripheral {
     }
 }
 
-#[async_trait]
+#[async_trait(?Send)]
 impl api::Peripheral for Peripheral {
     /// Returns the unique identifier of the peripheral.
     fn id(&self) -> PeripheralId {

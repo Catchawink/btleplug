@@ -122,7 +122,7 @@ impl Peripheral {
     }
 }
 
-#[async_trait]
+#[async_trait(?Send)]
 impl api::Peripheral for Peripheral {
     fn id(&self) -> PeripheralId {
         PeripheralId(self.device.to_owned())

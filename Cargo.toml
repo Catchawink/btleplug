@@ -40,9 +40,11 @@ enumflags2 = { version = "0.7", features = ["serde"] }
 serde_with = "3.12.0"
 
 [target.'cfg(all(not(target_arch = "wasm32"), not(target_arch = "xtensa")))'.dependencies]
+uuid = { version = "1.13", features = ["v4", "rng-getrandom"] }
 tokio-stream = { version = "0.1.14", features = ["sync"] }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
+uuid = { version = "1.13", features = ["v4", "js"] }
 tokio-stream = { version = "0.1.14", default-features = false, features = ["sync"] }
 tauri-sys = { git = "https://github.com/Catchawink/tauri-sys.git", branch = "v2", features = ["all"] }
 gloo-console = "0.3.0"

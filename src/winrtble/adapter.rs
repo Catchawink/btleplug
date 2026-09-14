@@ -47,7 +47,7 @@ impl Debug for Adapter {
     }
 }
 
-#[async_trait]
+#[async_trait(?Send)]
 impl Central for Adapter {
     type Peripheral = Peripheral;
 
