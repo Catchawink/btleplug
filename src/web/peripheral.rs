@@ -17,7 +17,7 @@ use uuid::Uuid;
 use wasm_bindgen::{closure::Closure, JsCast, JsValue};
 use wasm_bindgen_futures::{spawn_local, JsFuture};
 use web_sys::{
-    BluetoothRemoteGattCharacteristic, BluetoothRemoteGattDescriptor,
+    BluetoothDevice, BluetoothRemoteGattCharacteristic, BluetoothRemoteGattDescriptor,
     BluetoothRemoteGattServer, BluetoothRemoteGattService, DomException,
 };
 
@@ -44,8 +44,55 @@ struct NotificationRegistration {
 }
 
 thread_local! {
+    static CONNECTION_LISTENERS: RefCell<HashMap<String, ConnectionRegistration>> =
+        RefCell::new(HashMap::new());
     static NOTIFICATION_LISTENERS: RefCell<HashMap<(String, Uuid), NotificationRegistration>> =
         RefCell::new(HashMap::new());
+}
+
+struct ConnectionRegistration {
+    device: BluetoothDevice,
+    disconnected: Closure<dyn FnMut(JsValue)>,
+    pagehide: Closure<dyn FnMut(JsValue)>,
+    window: web_sys::Window,
+    cancelled: std::rc::Rc<std::cell::Cell<bool>>,
+}
+
+impl Drop for ConnectionRegistration {
+    fn drop(&mut self) {
+        let _ = self.device.remove_event_listener_with_callback(
+            "gattserverdisconnected",
+            self.disconnected.as_ref().unchecked_ref(),
+        );
+        let _ = self.window.remove_event_listener_with_callback(
+            "pagehide",
+            self.pagehide.as_ref().unchecked_ref(),
+        );
+    }
+}
+
+fn clear_notifications(device_id: &str) {
+    NOTIFICATION_LISTENERS.with(|listeners| {
+        listeners.borrow_mut().retain(|(id, _), registration| {
+            if id != device_id {
+                return true;
+            }
+            let _ = registration
+                .characteristic
+                .remove_event_listener_with_callback(
+                    "characteristicvaluechanged",
+                    registration.listener.as_ref().unchecked_ref(),
+                );
+            false
+        });
+    });
+}
+
+fn browser_error(error: &JsValue) -> String {
+    match error.dyn_ref::<DomException>() {
+        Some(exception) => format!("{}: {}", exception.name(), exception.message()),
+        None => format!("{error:?}"),
+    }
 }
 
 #[derive(Clone)]
@@ -77,6 +124,7 @@ impl Peripheral {
 
         Self {
             shared: Arc::new(Shared {
+                connection_lock: futures::lock::Mutex::new(()),
                 notifications_channel,
                 manager,
                 uuid,
@@ -95,8 +143,7 @@ impl Peripheral {
 
         // `update_properties` should not establish a GATT connection. On Web Bluetooth,
         // requesting/selecting a device and connecting to its GATT server are separate
-        // operations. Actual connection is handled by `connect`, service discovery, or
-        // characteristic access when needed.
+        // operations. Only explicit `connect` calls establish a connection.
         if let Some(name) = device.name() {
             self.shared.properties.lock().unwrap().local_name = Some(name);
         }
@@ -106,6 +153,11 @@ impl Peripheral {
         &self,
         characteristic: &Characteristic,
     ) -> Result<BluetoothRemoteGattCharacteristic> {
+        let device = utils::get_bluetooth_device(self.shared.id.clone()).await
+            .ok_or(Error::DeviceNotFound)?;
+        if !device.gatt().map(|gatt| gatt.connected()).unwrap_or(false) {
+            return Err(Error::RuntimeError("BLE disconnected before characteristic access".into()));
+        }
         utils::get_bluetooth_characteristic(
             self.shared.id.clone(),
             characteristic.service_uuid,
@@ -161,6 +213,7 @@ impl Peripheral {
 }
 
 struct Shared {
+    connection_lock: futures::lock::Mutex<()>,
     notifications_channel: broadcast::Sender<ValueNotification>,
     #[allow(dead_code)]
     manager: Weak<AdapterManager<Peripheral>>,
@@ -249,25 +302,99 @@ impl api::Peripheral for Peripheral {
             Error::NotSupported("Bluetooth device GATT server is unavailable".to_string())
         })?;
 
+        let _connection_lock = self.shared.connection_lock.lock().await;
         if gatt.connected() {
             return Ok(());
         }
+        clear_notifications(&self.shared.id);
+        self.shared.services.lock().unwrap().clear();
+        let cancelled = std::rc::Rc::new(std::cell::Cell::new(false));
+        let weak = Arc::downgrade(&self.shared);
+        let disconnected = Closure::wrap(Box::new(move |_: JsValue| {
+            if let Some(shared) = weak.upgrade() {
+                clear_notifications(&shared.id);
+                shared.services.lock().unwrap().clear();
+                shared.properties.lock().unwrap().services.clear();
+                log!(&format!("BLE GATT disconnected at {:.0} ms", js_sys::Date::now()));
+            }
+        }) as Box<dyn FnMut(JsValue)>);
+        let page_gatt = gatt.clone();
+        let page_cancelled = cancelled.clone();
+        let pagehide = Closure::wrap(Box::new(move |_: JsValue| {
+            log!(&format!("BLE pagehide at {:.0} ms (gatt.connected={}): disconnecting",
+                js_sys::Date::now(), page_gatt.connected()));
+            page_cancelled.set(true);
+            // Synchronous best effort; unload callbacks are not guaranteed to run.
+            page_gatt.disconnect();
+        }) as Box<dyn FnMut(JsValue)>);
+        let window =
+            web_sys::window().ok_or_else(|| Error::RuntimeError("No browser window".into()))?;
+        let registration = ConnectionRegistration {
+            device: device.clone(),
+            disconnected,
+            pagehide,
+            window,
+            cancelled: cancelled.clone(),
+        };
+        device
+            .add_event_listener_with_callback(
+                "gattserverdisconnected",
+                registration.disconnected.as_ref().unchecked_ref(),
+            )
+            .map_err(|error| Error::RuntimeError(browser_error(&error)))?;
+        registration
+            .window
+            .add_event_listener_with_callback(
+                "pagehide",
+                registration.pagehide.as_ref().unchecked_ref(),
+            )
+            .map_err(|error| Error::RuntimeError(browser_error(&error)))?;
+        CONNECTION_LISTENERS.with(|listeners| {
+            listeners
+                .borrow_mut()
+                .insert(self.shared.id.clone(), registration)
+        });
 
-        match JsFuture::from(gatt.connect()).await {
-            Ok(_) => Ok(()),
-            Err(error) => {
-                let exception: DomException = error.into();
-
-                if gatt.connected() {
+        for attempt in 1..=2 {
+            if cancelled.get() {
+                return Err(Error::RuntimeError(
+                    "Bluetooth connection cancelled during page teardown".into(),
+                ));
+            }
+            let started_at = js_sys::Date::now();
+            log!(&format!("BLE connect attempt {attempt}/2 starting at {started_at:.0} ms (gatt.connected={})", gatt.connected()));
+            match JsFuture::from(gatt.connect()).await {
+                Ok(_) if gatt.connected() && !cancelled.get() => {
+                    log!(&format!("BLE connect attempt {attempt}/2 succeeded after {:.0} ms", js_sys::Date::now() - started_at));
                     return Ok(());
                 }
-
-                Err(Error::RuntimeError(format!(
-                    "Failed to connect: {:?}",
-                    exception.name()
-                )))
+                Ok(_) => {
+                    return Err(Error::RuntimeError(
+                        "Bluetooth disconnected during connect".into(),
+                    ));
+                }
+                Err(error) => {
+                    let detail = format!(
+                        "BLE connect attempt {attempt}/2 failed after {:.0} ms (gatt.connected={}): {}",
+                        js_sys::Date::now() - started_at,
+                        gatt.connected(),
+                        browser_error(&error)
+                    );
+                    log!(&detail);
+                    let retry = error
+                        .dyn_ref::<DomException>()
+                        .map(|exception| exception.name() == "NetworkError")
+                        .unwrap_or(false);
+                    if attempt == 2 || !retry || cancelled.get() {
+                        return Err(Error::RuntimeError(detail));
+                    }
+                    gatt.disconnect();
+                    // A bounded delay allows the OS/controller to finish disconnecting.
+                    utils::sleep(std::time::Duration::from_millis(500)).await;
+                }
             }
         }
+        unreachable!()
     }
 
     async fn disconnect(&self) -> Result<()> {
@@ -278,27 +405,14 @@ impl api::Peripheral for Peripheral {
             ));
         }
 
-        // Remove all browser callbacks for this device before disconnecting so no stale
-        // registrations survive a reconnect.
-        let registrations = NOTIFICATION_LISTENERS.with(|listeners| {
-            let mut listeners = listeners.borrow_mut();
-            let keys = listeners
-                .keys()
-                .filter(|(device_id, _)| device_id == &self.shared.id)
-                .cloned()
-                .collect::<Vec<_>>();
-
-            keys.into_iter()
-                .filter_map(|key| listeners.remove(&key))
-                .collect::<Vec<_>>()
+        CONNECTION_LISTENERS.with(|listeners| {
+            if let Some(registration) = listeners.borrow_mut().remove(&self.shared.id) {
+                registration.cancelled.set(true);
+            }
         });
-
-        for registration in registrations {
-            let _ = registration.characteristic.remove_event_listener_with_callback(
-                "characteristicvaluechanged",
-                registration.listener.as_ref().unchecked_ref(),
-            );
-        }
+        clear_notifications(&self.shared.id);
+        self.shared.services.lock().unwrap().clear();
+        self.shared.properties.lock().unwrap().services.clear();
 
         let device = utils::get_bluetooth_device(self.shared.id.clone())
             .await
@@ -320,18 +434,7 @@ impl api::Peripheral for Peripheral {
         })?;
 
         if !gatt.connected() {
-            match JsFuture::from(gatt.connect()).await {
-                Ok(_) => {}
-                Err(error) => {
-                    let exception: DomException = error.into();
-                    if !gatt.connected() {
-                        return Err(Error::RuntimeError(format!(
-                            "Failed to connect before service discovery: {:?}",
-                            exception.name()
-                        )));
-                    }
-                }
-            }
+            return Err(Error::RuntimeError("BLE disconnected before service discovery; connect explicitly".into()));
         }
 
         let server: BluetoothRemoteGattServer = gatt;
@@ -498,6 +601,9 @@ impl api::Peripheral for Peripheral {
             )));
         }
 
+        if !self.is_connected().await? {
+            return Err(Error::RuntimeError("BLE disconnected before subscription".into()));
+        }
         let key = (self.shared.id.clone(), characteristic.uuid);
         let already_registered =
             NOTIFICATION_LISTENERS.with(|listeners| listeners.borrow().contains_key(&key));
@@ -551,6 +657,11 @@ impl api::Peripheral for Peripheral {
             )));
         }
 
+        if !self.is_connected().await? {
+            let _ = web_characteristic.remove_event_listener_with_callback(
+                "characteristicvaluechanged", listener.as_ref().unchecked_ref());
+            return Err(Error::RuntimeError("BLE disconnected during subscription".into()));
+        }
         NOTIFICATION_LISTENERS.with(|listeners| {
             listeners.borrow_mut().insert(
                 key,

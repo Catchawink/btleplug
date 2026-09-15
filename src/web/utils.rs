@@ -1,13 +1,12 @@
 use std::time::Duration;
 
-use futures::channel::oneshot;
 use gloo_console::log;
 use uuid::Uuid;
 use wasm_bindgen::JsValue;
 use wasm_bindgen_futures::JsFuture;
 use web_sys::{
     window, Bluetooth, BluetoothDevice, BluetoothRemoteGattCharacteristic,
-    BluetoothRemoteGattServer, BluetoothRemoteGattService, DomException,
+    BluetoothRemoteGattServer, BluetoothRemoteGattService,
 };
 
 pub fn is_tauri() -> bool {
@@ -42,28 +41,8 @@ pub async fn get_bluetooth_device_server(
         return Some(gatt);
     }
 
-    log!("Connecting to device...");
-
-    match JsFuture::from(gatt.connect()).await {
-        Ok(server) => Some(server.into()),
-        Err(error) => {
-            // Re-check the actual GATT state after the Promise rejects. Browsers can
-            // report an error even though the connection has become usable.
-            if gatt.connected() {
-                log!(
-                    "connect() returned an error, but the GATT server is connected; continuing."
-                );
-                return Some(gatt);
-            }
-
-            let exception: DomException = error.into();
-            log!(&format!(
-                "Failed to connect to Web Bluetooth device: {:?}",
-                exception.name()
-            ));
-            None
-        }
-    }
+    log!("BLE GATT server is disconnected; connect explicitly before characteristic access");
+    None
 }
 
 pub async fn get_bluetooth_characteristic(
@@ -120,12 +99,16 @@ pub async fn get_bluetooth_characteristic(
 }
 
 pub async fn sleep(duration: Duration) {
-    let (response_tx, response_rx) = oneshot::channel::<()>();
-
-    wasm_bindgen_futures::spawn_local(async move {
-        async_std::task::sleep(Duration::from_millis(duration.as_millis() as u64)).await;
-        let _ = response_tx.send(());
+    let promise = js_sys::Promise::new(&mut |resolve, reject| {
+        let result = window()
+            .unwrap()
+            .set_timeout_with_callback_and_timeout_and_arguments_0(
+                &resolve,
+                duration.as_millis().min(i32::MAX as u128) as i32,
+            );
+        if let Err(error) = result {
+            let _ = reject.call1(&JsValue::UNDEFINED, &error);
+        }
     });
-
-    let _ = response_rx.await;
+    let _ = JsFuture::from(promise).await;
 }
