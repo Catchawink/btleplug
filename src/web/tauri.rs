@@ -35,20 +35,24 @@ where
 }
 
 /// Write raw data to a BLE characteristic.
+use tauri_sys::core::invoke_result;
+
 pub async fn ble_device_send(
-    device: &BleDevice,
-    characteristic: String,
+    service: Uuid,
+    characteristic: Uuid,
     data: Vec<u8>,
-    write_type: Option<&str>,
+    write_type: WriteType,
 ) -> Result<(), JsValue> {
-    let write_type = write_type.unwrap_or("withResponse");
     let args = json!({
+        "service": service,
         "characteristic": characteristic,
         "data": data,
         "writeType": write_type,
     });
-    invoke::<()>("plugin:blec|send", &args).await;
-    Ok(())
+
+    invoke_result::<(), String>("plugin:blec|send", &args)
+        .await
+        .map_err(|error| JsValue::from_str(&error))
 }
 
 /// Write a string to a BLE characteristic.
@@ -70,12 +74,17 @@ pub async fn ble_device_send_string(
 
 /// Read raw data from a BLE characteristic.
 pub async fn ble_device_read(
-    device: &BleDevice,
-    characteristic: String,
+    service: Uuid,
+    characteristic: Uuid,
 ) -> Result<Vec<u8>, JsValue> {
-    let args = json!({ "characteristic": characteristic });
-    let res = invoke::<Vec<u8>>("plugin:blec|recv", &args).await;
-    Ok(res)
+    let args = json!({
+        "service": service,
+        "characteristic": characteristic,
+    });
+
+    invoke_result::<Vec<u8>, String>("plugin:blec|recv", &args)
+        .await
+        .map_err(|error| JsValue::from_str(&error))
 }
 
 /// Read a string from a BLE characteristic.
@@ -90,26 +99,32 @@ pub async fn ble_device_read_string(
 
 /// Subscribe to notifications (raw data) for a BLE characteristic.
 pub async fn ble_device_subscribe<F>(
-    device: &BleDevice,
-    characteristic: String,
+    service: Uuid,
+    characteristic: Uuid,
     mut handler: F,
 ) -> Result<(), JsValue>
 where
     F: FnMut(Vec<u8>) + 'static,
 {
     let mut on_data: Channel<Vec<u8>> = Channel::new();
+
     let args = json!({
+        "service": service,
         "characteristic": characteristic,
         "onData": on_data,
     });
+
     spawn_local(async move {
         use futures::StreamExt;
+
         while let Some(data) = on_data.next().await {
             handler(data);
         }
     });
-    invoke::<()>("plugin:blec|subscribe", &args).await;
-    Ok(())
+
+    invoke_result::<(), String>("plugin:blec|subscribe", &args)
+        .await
+        .map_err(|error| JsValue::from_str(&error))
 }
 
 /// Subscribe to notifications (string data) for a BLE characteristic.
@@ -138,13 +153,17 @@ where
 
 /// Unsubscribe from a BLE characteristic.
 pub async fn ble_device_unsubscribe(
-    device: &BleDevice,
-    characteristic: String,
+    characteristic: Uuid,
 ) -> Result<(), JsValue> {
-    let args = json!({ "characteristic": characteristic });
-    invoke::<()>("plugin:blec|unsubscribe", &args).await;
-    Ok(())
+    let args = json!({
+        "characteristic": characteristic,
+    });
+
+    invoke_result::<(), String>("plugin:blec|unsubscribe", &args)
+        .await
+        .map_err(|error| JsValue::from_str(&error))
 }
+
 /// Scan for BLE devices.
 ///
 /// Spawns a task that calls the provided handler for each batch of devices received.

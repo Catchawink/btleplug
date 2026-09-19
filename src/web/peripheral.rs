@@ -4,7 +4,7 @@ use std::{
     fmt::{self, Debug, Display, Formatter},
     pin::Pin,
     str::FromStr,
-    sync::{Arc, Mutex, Weak},
+    sync::{Arc, Mutex, Weak, atomic::{AtomicBool, Ordering}},
 };
 
 use async_trait::async_trait;
@@ -106,7 +106,7 @@ impl Peripheral {
         uuid: Uuid,
         id: String,
         name: Option<String>,
-        _services: Vec<Uuid>,
+        services: Vec<Uuid>,
     ) -> Self {
         let properties = Mutex::new(PeripheralProperties {
             address: BDAddr::default(),
@@ -116,7 +116,7 @@ impl Peripheral {
             rssi: None,
             manufacturer_data: HashMap::new(),
             service_data: HashMap::new(),
-            services: Vec::new(),
+            services,
             class: None,
         });
 
@@ -125,6 +125,7 @@ impl Peripheral {
         Self {
             shared: Arc::new(Shared {
                 connection_lock: futures::lock::Mutex::new(()),
+                connected: AtomicBool::new(false),
                 notifications_channel,
                 manager,
                 uuid,
@@ -214,6 +215,7 @@ impl Peripheral {
 
 struct Shared {
     connection_lock: futures::lock::Mutex<()>,
+    connected: AtomicBool,
     notifications_channel: broadcast::Sender<ValueNotification>,
     #[allow(dead_code)]
     manager: Weak<AdapterManager<Peripheral>>,
@@ -258,10 +260,8 @@ impl api::Peripheral for Peripheral {
     }
 
     async fn is_connected(&self) -> Result<bool> {
-        // The Tauri backend does not use the browser's BluetoothDevice registry.
-        // Preserve its existing semantics until the Tauri bridge exposes connection state.
         if is_tauri() {
-            return Ok(true);
+            return Ok(self.shared.connected.load(Ordering::Acquire));
         }
 
         let device = utils::get_bluetooth_device(self.shared.id.clone())
@@ -273,24 +273,54 @@ impl api::Peripheral for Peripheral {
 
     async fn connect(&self) -> Result<()> {
         if is_tauri() {
-            let address = self.address().to_string();
-            let (tx, rx) = oneshot::channel::<Vec<crate::models::Service>>();
+            let address = self.shared.id.clone();
+            let weak = Arc::downgrade(&self.shared);
 
-            spawn_local(async move {
-                let services = tauri::connect::<fn()>(address, None)
-                    .await
-                    .expect("Failed to connect to BLE device!");
-                let _ = tx.send(services);
-            });
+            log!(format!("Connecting to native BLE address: {address}"));
 
-            let discovered_services = rx.await.map_err(|_| {
-                Error::RuntimeError("Tauri Bluetooth connect task was cancelled".to_string())
+            let weak = Arc::downgrade(&self.shared);
+
+            let discovered_services = tauri::connect(
+                address,
+                Some(move || {
+                    if let Some(shared) = weak.upgrade() {
+                        shared.connected.store(false, Ordering::Release);
+                        shared.services.lock().unwrap().clear();
+                        shared.properties.lock().unwrap().services.clear();
+
+                        log!("Native BLE device disconnected");
+                    }
+                }),
+            )
+            .await
+            .map_err(|error| {
+                Error::RuntimeError(format!(
+                    "Failed to connect to native BLE device: {error:?}"
+                ))
             })?;
 
-            let mut services = self.shared.services.lock().unwrap();
-            for service in discovered_services {
-                services.insert(service.into());
+            for service in &discovered_services {
+                for characteristic in &service.characteristics {
+                    log!(format!(
+                        "TAURI MODEL characteristic {} service {} properties {:?} bits={:#04x}",
+                        characteristic.uuid,
+                        characteristic.service_uuid,
+                        characteristic.properties,
+                        characteristic.properties.bits(),
+                    ));
+                }
             }
+
+            {
+                let mut services = self.shared.services.lock().unwrap();
+                services.clear();
+
+                for service in discovered_services {
+                    services.insert(service.into());
+                }
+            }
+
+            self.shared.connected.store(true, Ordering::Release);
 
             return Ok(());
         }
@@ -399,10 +429,19 @@ impl api::Peripheral for Peripheral {
 
     async fn disconnect(&self) -> Result<()> {
         if is_tauri() {
-            // The provided Tauri bridge code does not expose a disconnect operation here.
-            return Err(Error::NotSupported(
-                "Disconnect is not implemented by the Tauri Bluetooth bridge".to_string(),
-            ));
+            tauri::disconnect()
+                .await
+                .map_err(|error| {
+                    Error::RuntimeError(format!(
+                        "Failed to disconnect native BLE device: {error:?}"
+                    ))
+                })?;
+
+            self.shared.connected.store(false, Ordering::Release);
+            self.shared.services.lock().unwrap().clear();
+            self.shared.properties.lock().unwrap().services.clear();
+
+            return Ok(());
         }
 
         CONNECTION_LISTENERS.with(|listeners| {
@@ -426,6 +465,17 @@ impl api::Peripheral for Peripheral {
     }
 
     async fn discover_services(&self) -> Result<()> {
+        if is_tauri() {
+            if !self.shared.connected.load(Ordering::Acquire) {
+                return Err(Error::RuntimeError(
+                    "BLE disconnected before service discovery".into()
+                ));
+            }
+
+            // Tauri connect() already populated self.shared.services.
+            return Ok(());
+        }
+
         let device = utils::get_bluetooth_device(self.shared.id.clone())
             .await
             .ok_or(Error::DeviceNotFound)?;
@@ -544,6 +594,23 @@ impl api::Peripheral for Peripheral {
         data: &[u8],
         write_type: WriteType,
     ) -> Result<()> {
+        if is_tauri() {
+            tauri::ble_device_send(
+                characteristic.service_uuid,
+                characteristic.uuid,
+                data.to_vec(),
+                write_type.into(),
+            )
+            .await
+            .map_err(|error| {
+                Error::RuntimeError(format!(
+                    "Native BLE write failed: {error:?}"
+                ))
+            })?;
+
+            return Ok(());
+        }
+
         let web_characteristic = self.web_characteristic(characteristic).await?;
         let bytes = Uint8Array::from(data);
 
@@ -577,6 +644,19 @@ impl api::Peripheral for Peripheral {
     }
 
     async fn read(&self, characteristic: &Characteristic) -> Result<Vec<u8>> {
+        if is_tauri() {
+            return tauri::ble_device_read(
+                characteristic.service_uuid,
+                characteristic.uuid,
+            )
+            .await
+            .map_err(|error| {
+                Error::RuntimeError(format!(
+                    "Native BLE read failed: {error:?}"
+                ))
+            });
+        }
+
         let web_characteristic = self.web_characteristic(characteristic).await?;
         let value: DataView = JsFuture::from(web_characteristic.read_value())
             .await
@@ -592,6 +672,43 @@ impl api::Peripheral for Peripheral {
     }
 
     async fn subscribe(&self, characteristic: &Characteristic) -> Result<()> {
+        if !self.is_connected().await? {
+            return Err(Error::RuntimeError(
+                "BLE disconnected before subscription".into(),
+            ));
+        }
+
+        // On Tauri/Android, let the native BLE backend determine whether
+        // this characteristic can actually be subscribed to.
+        //
+        // The characteristic property metadata currently arrives as 0x00,
+        // so checking it here would incorrectly reject valid characteristics.
+        if is_tauri() {
+            let notifications = self.shared.notifications_channel.clone();
+            let uuid = characteristic.uuid;
+
+            tauri::ble_device_subscribe(
+                characteristic.service_uuid,
+                characteristic.uuid,
+                move |data| {
+                    let _ = notifications.send(ValueNotification {
+                        uuid,
+                        value: data,
+                    });
+                },
+            )
+            .await
+            .map_err(|error| {
+                Error::RuntimeError(format!(
+                    "Native BLE subscribe failed: {error:?}"
+                ))
+            })?;
+
+            return Ok(());
+        }
+
+        // Web Bluetooth provides reliable characteristic property metadata,
+        // so retain the early validation for the browser backend.
         if !characteristic.properties.contains(CharPropFlags::NOTIFY)
             && !characteristic.properties.contains(CharPropFlags::INDICATE)
         {
@@ -601,14 +718,12 @@ impl api::Peripheral for Peripheral {
             )));
         }
 
-        if !self.is_connected().await? {
-            return Err(Error::RuntimeError("BLE disconnected before subscription".into()));
-        }
         let key = (self.shared.id.clone(), characteristic.uuid);
+
         let already_registered =
             NOTIFICATION_LISTENERS.with(|listeners| listeners.borrow().contains_key(&key));
 
-        // Make subscribe idempotent and, importantly, don't stack duplicate callbacks.
+        // Make subscribe idempotent and don't stack duplicate callbacks.
         if already_registered {
             return Ok(());
         }
@@ -618,17 +733,28 @@ impl api::Peripheral for Peripheral {
         let uuid = characteristic.uuid;
 
         let listener = Closure::wrap(Box::new(move |event: JsValue| {
-            let target = js_sys::Reflect::get(&event, &JsValue::from_str("target"))
-                .unwrap_or(JsValue::UNDEFINED);
-            let Ok(target) = target.dyn_into::<BluetoothRemoteGattCharacteristic>() else {
+            let target = js_sys::Reflect::get(
+                &event,
+                &JsValue::from_str("target"),
+            )
+            .unwrap_or(JsValue::UNDEFINED);
+
+            let Ok(target) =
+                target.dyn_into::<BluetoothRemoteGattCharacteristic>()
+            else {
                 return;
             };
+
             let Some(value) = target.value() else {
                 return;
             };
 
             let bytes = data_view_to_vec(&value);
-            let _ = notifications.send(ValueNotification { uuid, value: bytes });
+
+            let _ = notifications.send(ValueNotification {
+                uuid,
+                value: bytes,
+            });
         }) as Box<dyn FnMut(JsValue)>);
 
         web_characteristic
@@ -643,9 +769,11 @@ impl api::Peripheral for Peripheral {
                 ))
             })?;
 
-        // Register the callback before enabling notifications so the first event cannot
-        // arrive before Rust has a listener installed.
-        if let Err(error) = JsFuture::from(web_characteristic.start_notifications()).await {
+        // Register the callback before enabling notifications so the first
+        // notification can't arrive before Rust has installed its listener.
+        if let Err(error) =
+            JsFuture::from(web_characteristic.start_notifications()).await
+        {
             let _ = web_characteristic.remove_event_listener_with_callback(
                 "characteristicvaluechanged",
                 listener.as_ref().unchecked_ref(),
@@ -659,9 +787,15 @@ impl api::Peripheral for Peripheral {
 
         if !self.is_connected().await? {
             let _ = web_characteristic.remove_event_listener_with_callback(
-                "characteristicvaluechanged", listener.as_ref().unchecked_ref());
-            return Err(Error::RuntimeError("BLE disconnected during subscription".into()));
+                "characteristicvaluechanged",
+                listener.as_ref().unchecked_ref(),
+            );
+
+            return Err(Error::RuntimeError(
+                "BLE disconnected during subscription".into(),
+            ));
         }
+
         NOTIFICATION_LISTENERS.with(|listeners| {
             listeners.borrow_mut().insert(
                 key,
@@ -676,6 +810,18 @@ impl api::Peripheral for Peripheral {
     }
 
     async fn unsubscribe(&self, characteristic: &Characteristic) -> Result<()> {
+        if is_tauri() {
+            tauri::ble_device_unsubscribe(characteristic.uuid)
+                .await
+                .map_err(|error| {
+                    Error::RuntimeError(format!(
+                        "Native BLE unsubscribe failed: {error:?}"
+                    ))
+                })?;
+
+            return Ok(());
+        }
+
         let key = (self.shared.id.clone(), characteristic.uuid);
         let registration =
             NOTIFICATION_LISTENERS.with(|listeners| listeners.borrow_mut().remove(&key));

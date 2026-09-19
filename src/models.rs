@@ -78,16 +78,15 @@ impl From<crate::api::Service> for Service {
     }
 }
 
-impl Into<crate::api::Service> for Service {
-    fn into(self) -> crate::api::Service {
+impl From<Service> for crate::api::Service {
+    fn from(service: Service) -> Self {
         crate::api::Service {
-            uuid: self.uuid,
+            uuid: service.uuid,
             primary: true,
-            characteristics: self
+            characteristics: service
                 .characteristics
-                .iter()
-                .cloned()
-                .map(Characteristic::into)
+                .into_iter()
+                .map(crate::api::Characteristic::from)
                 .collect(),
         }
     }
@@ -112,19 +111,24 @@ impl From<crate::api::Characteristic> for Characteristic {
     }
 }
 
-impl Into<crate::api::Characteristic> for Characteristic {
-    fn into(self) -> crate::api::Characteristic {
+impl From<Characteristic> for crate::api::Characteristic {
+    fn from(characteristic: Characteristic) -> Self {
+        let service_uuid = characteristic.service_uuid;
+        let characteristic_uuid = characteristic.uuid;
+
         crate::api::Characteristic {
-            uuid: self.uuid,
-            service_uuid: self.service_uuid,
-            properties: into_flags(self.properties),
-            descriptors: self
+            uuid: characteristic_uuid,
+            service_uuid,
+
+            properties: into_flags(characteristic.properties),
+
+            descriptors: characteristic
                 .descriptors
                 .into_iter()
-                .map(|d| crate::api::Descriptor {
-                    uuid: d,
-                    characteristic_uuid: self.uuid,
-                    service_uuid: self.service_uuid,
+                .map(|uuid| crate::api::Descriptor {
+                    uuid,
+                    service_uuid,
+                    characteristic_uuid,
                 })
                 .collect(),
         }
@@ -220,6 +224,15 @@ impl From<WriteType> for crate::api::WriteType {
         match write_type {
             WriteType::WithResponse => crate::api::WriteType::WithResponse,
             WriteType::WithoutResponse => crate::api::WriteType::WithoutResponse,
+        }
+    }
+}
+
+impl From<crate::api::WriteType> for WriteType {
+    fn from(write_type: crate::api::WriteType) -> Self {
+        match write_type {
+            crate::api::WriteType::WithResponse => WriteType::WithResponse,
+            crate::api::WriteType::WithoutResponse => WriteType::WithoutResponse,
         }
     }
 }
