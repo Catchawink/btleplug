@@ -274,7 +274,11 @@ class Peripheral {
                     }
 
                     BluetoothGattDescriptor descriptor = characteristic.getDescriptor(CLIENT_CHARACTERISTIC_CONFIGURATION_DESCRIPTOR);
-                    descriptor.setValue(enable ? BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE : BluetoothGattDescriptor.DISABLE_NOTIFICATION_VALUE);
+                        boolean supportsIndications = (characteristic.getProperties() & BluetoothGattCharacteristic.PROPERTY_INDICATE) != 0;
+                        byte[] subscriptionValue = supportsIndications
+                            ? BluetoothGattDescriptor.ENABLE_INDICATION_VALUE
+                            : BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE;
+                        descriptor.setValue(enable ? subscriptionValue : BluetoothGattDescriptor.DISABLE_NOTIFICATION_VALUE);
                     if (!this.gatt.writeDescriptor(descriptor)) {
                         throw new RuntimeException("Unable to write client characteristic configuration descriptor");
                     }

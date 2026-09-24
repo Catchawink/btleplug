@@ -337,7 +337,7 @@ impl<'a: 'b, 'b> JBluetoothGattService<'a, 'b> {
         Ok(uuid_obj.as_uuid()?)
     }
 
-    pub fn get_characteristics(&self) -> Result<Vec<JBluetoothGattCharacteristic>> {
+    pub fn get_characteristics(&self) -> Result<Vec<JBluetoothGattCharacteristic<'_, '_>>> {
         let obj = self
             .env
             .call_method_unchecked(
@@ -424,7 +424,7 @@ impl<'a: 'b, 'b> JBluetoothGattCharacteristic<'a, 'b> {
         jni_utils::arrays::byte_array_to_vec(self.env, value.into_inner())
     }
 
-    pub fn get_descriptors(&self) -> Result<Vec<JBluetoothGattDescriptor>> {
+    pub fn get_descriptors(&self) -> Result<Vec<JBluetoothGattDescriptor<'_, '_>>> {
         let obj = self
             .env
             .call_method_unchecked(

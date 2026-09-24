@@ -137,7 +137,7 @@ impl Central for Adapter {
     }
 
     async fn start_scan(&self, filter: ScanFilter) -> Result<()> {
-        let env = global_jvm().get_env()?;
+        let env = global_jvm().attach_current_thread()?;
         let filter = JScanFilter::new(&env, filter)?;
         env.call_method(
             &self.internal,
@@ -149,7 +149,7 @@ impl Central for Adapter {
     }
 
     async fn stop_scan(&self) -> Result<()> {
-        let env = global_jvm().get_env()?;
+        let env = global_jvm().attach_current_thread()?;
         env.call_method(&self.internal, "stopScan", "()V", &[])?;
         Ok(())
     }

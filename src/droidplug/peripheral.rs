@@ -31,6 +31,16 @@ use super::jni::{
     objects::{JBluetoothGattCharacteristic, JBluetoothGattService, JPeripheral},
 };
 use jni::objects::JClass;
+async fn await_java(mut future: JSendFuture) -> jni::errors::Result<GlobalRef> {
+    futures::future::poll_fn(move |context| {
+        let _attachment = match global_jvm().attach_current_thread() {
+            Ok(attachment) => attachment,
+            Err(error) => return std::task::Poll::Ready(Err(error)),
+        };
+        std::future::Future::poll(Pin::new(&mut future), context)
+    }).await
+}
+
 #[cfg_attr(
     feature = "serde",
     derive(Serialize, Deserialize)
@@ -175,7 +185,7 @@ impl Peripheral {
     where
         E: From<::jni::errors::Error>,
     {
-        let env = global_jvm().get_env()?;
+        let env = global_jvm().attach_current_thread()?;
         let obj = JPeripheral::from_env(&env, self.internal.as_obj())?;
         f(&env, obj)
     }
@@ -189,7 +199,7 @@ impl Peripheral {
             let uuid_obj = JUuid::new(env, characteristic.uuid)?;
             JSendFuture::try_from(obj.set_characteristic_notification(uuid_obj, enable)?)
         })?;
-        let result_ref = future.await?;
+        let result_ref = await_java(future).await?;
         self.with_obj(|env, _obj| {
             let result = JPollResult::from_env(env, result_ref.as_obj())?;
             get_poll_result(env, result).map(|_| {})
@@ -230,7 +240,7 @@ impl api::Peripheral for Peripheral {
 
     async fn connect(&self) -> Result<()> {
         let future = self.with_obj(|_env, obj| JSendFuture::try_from(obj.connect()?))?;
-        let result_ref = future.await?;
+        let result_ref = await_java(future).await?;
         self.with_obj(|env, _obj| {
             let result = JPollResult::from_env(env, result_ref.as_obj())?;
             get_poll_result(env, result).map(|_| {})
@@ -239,7 +249,7 @@ impl api::Peripheral for Peripheral {
 
     async fn disconnect(&self) -> Result<()> {
         let future = self.with_obj(|_env, obj| JSendFuture::try_from(obj.disconnect()?))?;
-        let result_ref = future.await?;
+        let result_ref = await_java(future).await?;
         self.with_obj(|env, _obj| {
             let result = JPollResult::from_env(env, result_ref.as_obj())?;
             get_poll_result(env, result).map(|_| {})
@@ -255,7 +265,7 @@ impl api::Peripheral for Peripheral {
 
     async fn discover_services(&self) -> Result<()> {
         let future = self.with_obj(|_env, obj| JSendFuture::try_from(obj.discover_services()?))?;
-        let result_ref = future.await?;
+        let result_ref = await_java(future).await?;
         self.with_obj(|env, _obj| {
             use std::iter::FromIterator;
 
@@ -318,7 +328,7 @@ impl api::Peripheral for Peripheral {
             };
             JSendFuture::try_from(obj.write(uuid, data_obj.into(), write_type)?)
         })?;
-        let result_ref = future.await?;
+        let result_ref = await_java(future).await?;
         self.with_obj(|env, _obj| {
             let result = JPollResult::from_env(env, result_ref.as_obj())?;
             get_poll_result(env, result).map(|_| {})
@@ -330,7 +340,7 @@ impl api::Peripheral for Peripheral {
             let uuid = JUuid::new(env, characteristic.uuid)?;
             JSendFuture::try_from(obj.read(uuid)?)
         })?;
-        let result_ref = future.await?;
+        let result_ref = await_java(future).await?;
         self.with_obj(|env, _obj| {
             let result = JPollResult::from_env(env, result_ref.as_obj())?;
             let bytes = get_poll_result(env, result)?;
@@ -350,11 +360,18 @@ impl api::Peripheral for Peripheral {
 
     async fn notifications(&self) -> Result<Pin<Box<dyn Stream<Item = ValueNotification> + Send>>> {
         use futures::stream::StreamExt;
-        let stream = self.with_obj(|_env, obj| JSendStream::try_from(obj.get_notifications()?))?;
+        let mut stream = self.with_obj(|_env, obj| JSendStream::try_from(obj.get_notifications()?))?;
+        let stream = futures::stream::poll_fn(move |context| {
+            let _attachment = match global_jvm().attach_current_thread() {
+                Ok(attachment) => attachment,
+                Err(error) => return std::task::Poll::Ready(Some(Err(error))),
+            };
+            Pin::new(&mut stream).poll_next(context)
+        });
         let stream = stream
             .map(|item| match item {
                 Ok(item) => {
-                    let env = global_jvm().get_env()?;
+                    let env = global_jvm().attach_current_thread()?;
                     let item = item.as_obj();
                     let characteristic = JBluetoothGattCharacteristic::from_env(&env, item)?;
                     let uuid = characteristic.get_uuid()?;
@@ -374,7 +391,7 @@ impl api::Peripheral for Peripheral {
             let data_obj = jni_utils::arrays::slice_to_byte_array(env, data)?;
             JSendFuture::try_from(obj.write_descriptor(characteristic, uuid, data_obj.into())?)
         })?;
-        let result_ref = future.await?;
+        let result_ref = await_java(future).await?;
         self.with_obj(|env, _obj| {
             let result = JPollResult::from_env(env, result_ref.as_obj())?;
             get_poll_result(env, result).map(|_| {})
@@ -387,7 +404,7 @@ impl api::Peripheral for Peripheral {
             let uuid = JUuid::new(env, descriptor.uuid)?;
             JSendFuture::try_from(obj.read_descriptor(characteristic, uuid)?)
         })?;
-        let result_ref = future.await?;
+        let result_ref = await_java(future).await?;
         self.with_obj(|env, _obj| {
             let result = JPollResult::from_env(env, result_ref.as_obj())?;
             let bytes = get_poll_result(env, result)?;

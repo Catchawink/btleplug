@@ -9,6 +9,7 @@ static GLOBAL_JVM: OnceCell<JavaVM> = OnceCell::new();
 
 pub fn init(env: &JNIEnv) -> crate::Result<()> {
     if let Ok(()) = GLOBAL_JVM.set(env.get_java_vm()?) {
+        jni_utils::init(env)?;
         env.register_native_methods(
             "com/nonpolynomial/btleplug/android/impl/Adapter",
             &[
@@ -69,7 +70,13 @@ impl From<::jni::errors::Error> for crate::Error {
 }
 
 extern "C" fn adapter_report_scan_result(env: JNIEnv, obj: JObject, scan_result: JObject) {
-    let _ = super::adapter::adapter_report_scan_result_internal(&env, obj, scan_result);
+    if let Err(error) = super::adapter::adapter_report_scan_result_internal(&env, obj, scan_result) {
+        eprintln!("btleplug Android scan result failed: {error:?}");
+        if env.exception_check().unwrap_or(false) {
+            let _ = env.exception_describe();
+            let _ = env.exception_clear();
+        }
+    }
 }
 
 extern "C" fn adapter_on_connection_state_changed(
