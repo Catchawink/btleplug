@@ -21,11 +21,11 @@ use super::{
         nsuuid_to_uuid,
     },
 };
-use crate::api::{
-    bleuuid::uuid_from_u16, CharPropFlags, Characteristic, Descriptor, ScanFilter, Service,
-    WriteType,
-};
 use crate::Error;
+use crate::api::{
+    CharPropFlags, Characteristic, Descriptor, ScanFilter, Service, WriteType,
+    bleuuid::uuid_from_u16,
+};
 use cocoa::{
     base::{id, nil},
     foundation::NSArray,
@@ -463,8 +463,7 @@ impl CoreBluetoothInternal {
     ) {
         trace!(
             "Got manufacturer data advertisement! {}: {:?}",
-            manufacturer_id,
-            manufacturer_data
+            manufacturer_id, manufacturer_data
         );
         if let Some(p) = self.peripherals.get_mut(&peripheral_uuid) {
             if let Err(e) = p
@@ -569,8 +568,7 @@ impl CoreBluetoothInternal {
     ) {
         trace!(
             "Found characteristics for peripheral {} service {}:",
-            peripheral_uuid,
-            service_uuid
+            peripheral_uuid, service_uuid
         );
         for id in characteristics.keys() {
             trace!("{}", id);
@@ -589,9 +587,7 @@ impl CoreBluetoothInternal {
     ) {
         trace!(
             "Found descriptors for peripheral {} service {} characteristic {}:",
-            peripheral_uuid,
-            service_uuid,
-            characteristic_uuid,
+            peripheral_uuid, service_uuid, characteristic_uuid,
         );
         for id in descriptors.keys() {
             trace!("{}", id);

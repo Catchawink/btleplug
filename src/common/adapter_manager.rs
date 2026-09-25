@@ -13,7 +13,7 @@
 // Copyright (c) 2014 The Rust Project Developers
 use crate::api::{CentralEvent, Peripheral};
 use crate::platform::PeripheralId;
-use dashmap::{mapref::one::RefMut, DashMap};
+use dashmap::{DashMap, mapref::one::RefMut};
 use futures::stream::{Stream, StreamExt};
 use log::trace;
 use std::pin::Pin;

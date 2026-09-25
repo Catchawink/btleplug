@@ -1,10 +1,10 @@
 use jni::{
+    JNIEnv,
     errors::Result,
     objects::{JClass, JList, JMap, JMethodID, JObject, JString},
     signature::{JavaType, Primitive},
     strings::JavaStr,
     sys::jint,
-    JNIEnv,
 };
 use jni_utils::{future::JFuture, stream::JStream, uuid::JUuid};
 use std::{collections::HashMap, convert::TryFrom, iter::Iterator};

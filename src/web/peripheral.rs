@@ -4,30 +4,36 @@ use std::{
     fmt::{self, Debug, Display, Formatter},
     pin::Pin,
     str::FromStr,
-    sync::{Arc, Mutex, Weak, atomic::{AtomicBool, Ordering}},
+    sync::{
+        Arc, Mutex, Weak,
+        atomic::{AtomicBool, Ordering},
+    },
 };
 
 use async_trait::async_trait;
-use futures::{channel::{mpsc::SendError, oneshot}, Stream};
+use futures::{
+    Stream,
+    channel::{mpsc::SendError, oneshot},
+};
 use gloo_console::log;
 use js_sys::{DataView, Uint8Array};
 use serde::{Deserialize, Serialize};
 use tokio::sync::broadcast;
 use uuid::Uuid;
-use wasm_bindgen::{closure::Closure, JsCast, JsValue};
-use wasm_bindgen_futures::{spawn_local, JsFuture};
+use wasm_bindgen::{JsCast, JsValue, closure::Closure};
+use wasm_bindgen_futures::{JsFuture, spawn_local};
 use web_sys::{
     BluetoothDevice, BluetoothRemoteGattCharacteristic, BluetoothRemoteGattDescriptor,
     BluetoothRemoteGattServer, BluetoothRemoteGattService, DomException,
 };
 
 use crate::{
+    Error, Result,
     api::{
         self, BDAddr, CharPropFlags, Characteristic, Descriptor, PeripheralProperties, Service,
         ValueNotification, WriteType,
     },
     common::{adapter_manager::AdapterManager, util::notifications_stream_from_broadcast_receiver},
-    Error, Result,
 };
 
 use super::{
@@ -154,10 +160,13 @@ impl Peripheral {
         &self,
         characteristic: &Characteristic,
     ) -> Result<BluetoothRemoteGattCharacteristic> {
-        let device = utils::get_bluetooth_device(self.shared.id.clone()).await
+        let device = utils::get_bluetooth_device(self.shared.id.clone())
+            .await
             .ok_or(Error::DeviceNotFound)?;
         if !device.gatt().map(|gatt| gatt.connected()).unwrap_or(false) {
-            return Err(Error::RuntimeError("BLE disconnected before characteristic access".into()));
+            return Err(Error::RuntimeError(
+                "BLE disconnected before characteristic access".into(),
+            ));
         }
         utils::get_bluetooth_characteristic(
             self.shared.id.clone(),
@@ -173,7 +182,10 @@ impl Peripheral {
         })
     }
 
-    async fn web_descriptor(&self, descriptor: &Descriptor) -> Result<BluetoothRemoteGattDescriptor> {
+    async fn web_descriptor(
+        &self,
+        descriptor: &Descriptor,
+    ) -> Result<BluetoothRemoteGattDescriptor> {
         let characteristic = utils::get_bluetooth_characteristic(
             self.shared.id.clone(),
             descriptor.service_uuid,
@@ -294,9 +306,7 @@ impl api::Peripheral for Peripheral {
             )
             .await
             .map_err(|error| {
-                Error::RuntimeError(format!(
-                    "Failed to connect to native BLE device: {error:?}"
-                ))
+                Error::RuntimeError(format!("Failed to connect to native BLE device: {error:?}"))
             })?;
 
             for service in &discovered_services {
@@ -345,14 +355,20 @@ impl api::Peripheral for Peripheral {
                 clear_notifications(&shared.id);
                 shared.services.lock().unwrap().clear();
                 shared.properties.lock().unwrap().services.clear();
-                log!(&format!("BLE GATT disconnected at {:.0} ms", js_sys::Date::now()));
+                log!(&format!(
+                    "BLE GATT disconnected at {:.0} ms",
+                    js_sys::Date::now()
+                ));
             }
         }) as Box<dyn FnMut(JsValue)>);
         let page_gatt = gatt.clone();
         let page_cancelled = cancelled.clone();
         let pagehide = Closure::wrap(Box::new(move |_: JsValue| {
-            log!(&format!("BLE pagehide at {:.0} ms (gatt.connected={}): disconnecting",
-                js_sys::Date::now(), page_gatt.connected()));
+            log!(&format!(
+                "BLE pagehide at {:.0} ms (gatt.connected={}): disconnecting",
+                js_sys::Date::now(),
+                page_gatt.connected()
+            ));
             page_cancelled.set(true);
             // Synchronous best effort; unload callbacks are not guaranteed to run.
             page_gatt.disconnect();
@@ -392,10 +408,16 @@ impl api::Peripheral for Peripheral {
                 ));
             }
             let started_at = js_sys::Date::now();
-            log!(&format!("BLE connect attempt {attempt}/2 starting at {started_at:.0} ms (gatt.connected={})", gatt.connected()));
+            log!(&format!(
+                "BLE connect attempt {attempt}/2 starting at {started_at:.0} ms (gatt.connected={})",
+                gatt.connected()
+            ));
             match JsFuture::from(gatt.connect()).await {
                 Ok(_) if gatt.connected() && !cancelled.get() => {
-                    log!(&format!("BLE connect attempt {attempt}/2 succeeded after {:.0} ms", js_sys::Date::now() - started_at));
+                    log!(&format!(
+                        "BLE connect attempt {attempt}/2 succeeded after {:.0} ms",
+                        js_sys::Date::now() - started_at
+                    ));
                     return Ok(());
                 }
                 Ok(_) => {
@@ -429,13 +451,9 @@ impl api::Peripheral for Peripheral {
 
     async fn disconnect(&self) -> Result<()> {
         if is_tauri() {
-            tauri::disconnect()
-                .await
-                .map_err(|error| {
-                    Error::RuntimeError(format!(
-                        "Failed to disconnect native BLE device: {error:?}"
-                    ))
-                })?;
+            tauri::disconnect().await.map_err(|error| {
+                Error::RuntimeError(format!("Failed to disconnect native BLE device: {error:?}"))
+            })?;
 
             self.shared.connected.store(false, Ordering::Release);
             self.shared.services.lock().unwrap().clear();
@@ -468,7 +486,7 @@ impl api::Peripheral for Peripheral {
         if is_tauri() {
             if !self.shared.connected.load(Ordering::Acquire) {
                 return Err(Error::RuntimeError(
-                    "BLE disconnected before service discovery".into()
+                    "BLE disconnected before service discovery".into(),
                 ));
             }
 
@@ -484,17 +502,16 @@ impl api::Peripheral for Peripheral {
         })?;
 
         if !gatt.connected() {
-            return Err(Error::RuntimeError("BLE disconnected before service discovery; connect explicitly".into()));
+            return Err(Error::RuntimeError(
+                "BLE disconnected before service discovery; connect explicitly".into(),
+            ));
         }
 
         let server: BluetoothRemoteGattServer = gatt;
         let services = JsFuture::from(server.get_primary_services())
             .await
             .map_err(|error| {
-                Error::RuntimeError(format!(
-                    "Failed to fetch primary services: {:?}",
-                    error
-                ))
+                Error::RuntimeError(format!("Failed to fetch primary services: {:?}", error))
             })?;
 
         let mut discovered = BTreeSet::new();
@@ -519,11 +536,9 @@ impl api::Peripheral for Peripheral {
                 let properties = characteristic.properties();
 
                 let mut descriptor_set = BTreeSet::new();
-                let descriptor_values = match JsFuture::from(characteristic.get_descriptors()).await {
-                    Ok(values) => values
-                        .into_iter()
-                        .map(JsValue::from)
-                        .collect::<Vec<_>>(),
+                let descriptor_values = match JsFuture::from(characteristic.get_descriptors()).await
+                {
+                    Ok(values) => values.into_iter().map(JsValue::from).collect::<Vec<_>>(),
                     // Some devices/browsers reject descriptor enumeration. That should not
                     // prevent the characteristic itself from being discovered.
                     Err(_) => Vec::new(),
@@ -531,7 +546,8 @@ impl api::Peripheral for Peripheral {
 
                 for descriptor_value in descriptor_values {
                     let descriptor: BluetoothRemoteGattDescriptor = descriptor_value.into();
-                    let descriptor_uuid = Uuid::from_str(&descriptor.uuid()).map_err(Error::from)?;
+                    let descriptor_uuid =
+                        Uuid::from_str(&descriptor.uuid()).map_err(Error::from)?;
                     descriptor_set.insert(Descriptor {
                         uuid: descriptor_uuid,
                         service_uuid,
@@ -602,11 +618,7 @@ impl api::Peripheral for Peripheral {
                 write_type.into(),
             )
             .await
-            .map_err(|error| {
-                Error::RuntimeError(format!(
-                    "Native BLE write failed: {error:?}"
-                ))
-            })?;
+            .map_err(|error| Error::RuntimeError(format!("Native BLE write failed: {error:?}")))?;
 
             return Ok(());
         }
@@ -645,16 +657,11 @@ impl api::Peripheral for Peripheral {
 
     async fn read(&self, characteristic: &Characteristic) -> Result<Vec<u8>> {
         if is_tauri() {
-            return tauri::ble_device_read(
-                characteristic.service_uuid,
-                characteristic.uuid,
-            )
-            .await
-            .map_err(|error| {
-                Error::RuntimeError(format!(
-                    "Native BLE read failed: {error:?}"
-                ))
-            });
+            return tauri::ble_device_read(characteristic.service_uuid, characteristic.uuid)
+                .await
+                .map_err(|error| {
+                    Error::RuntimeError(format!("Native BLE read failed: {error:?}"))
+                });
         }
 
         let web_characteristic = self.web_characteristic(characteristic).await?;
@@ -691,17 +698,12 @@ impl api::Peripheral for Peripheral {
                 characteristic.service_uuid,
                 characteristic.uuid,
                 move |data| {
-                    let _ = notifications.send(ValueNotification {
-                        uuid,
-                        value: data,
-                    });
+                    let _ = notifications.send(ValueNotification { uuid, value: data });
                 },
             )
             .await
             .map_err(|error| {
-                Error::RuntimeError(format!(
-                    "Native BLE subscribe failed: {error:?}"
-                ))
+                Error::RuntimeError(format!("Native BLE subscribe failed: {error:?}"))
             })?;
 
             return Ok(());
@@ -733,15 +735,10 @@ impl api::Peripheral for Peripheral {
         let uuid = characteristic.uuid;
 
         let listener = Closure::wrap(Box::new(move |event: JsValue| {
-            let target = js_sys::Reflect::get(
-                &event,
-                &JsValue::from_str("target"),
-            )
-            .unwrap_or(JsValue::UNDEFINED);
+            let target = js_sys::Reflect::get(&event, &JsValue::from_str("target"))
+                .unwrap_or(JsValue::UNDEFINED);
 
-            let Ok(target) =
-                target.dyn_into::<BluetoothRemoteGattCharacteristic>()
-            else {
+            let Ok(target) = target.dyn_into::<BluetoothRemoteGattCharacteristic>() else {
                 return;
             };
 
@@ -751,10 +748,7 @@ impl api::Peripheral for Peripheral {
 
             let bytes = data_view_to_vec(&value);
 
-            let _ = notifications.send(ValueNotification {
-                uuid,
-                value: bytes,
-            });
+            let _ = notifications.send(ValueNotification { uuid, value: bytes });
         }) as Box<dyn FnMut(JsValue)>);
 
         web_characteristic
@@ -771,9 +765,7 @@ impl api::Peripheral for Peripheral {
 
         // Register the callback before enabling notifications so the first
         // notification can't arrive before Rust has installed its listener.
-        if let Err(error) =
-            JsFuture::from(web_characteristic.start_notifications()).await
-        {
+        if let Err(error) = JsFuture::from(web_characteristic.start_notifications()).await {
             let _ = web_characteristic.remove_event_listener_with_callback(
                 "characteristicvaluechanged",
                 listener.as_ref().unchecked_ref(),
@@ -814,9 +806,7 @@ impl api::Peripheral for Peripheral {
             tauri::ble_device_unsubscribe(characteristic.uuid)
                 .await
                 .map_err(|error| {
-                    Error::RuntimeError(format!(
-                        "Native BLE unsubscribe failed: {error:?}"
-                    ))
+                    Error::RuntimeError(format!("Native BLE unsubscribe failed: {error:?}"))
                 })?;
 
             return Ok(());
@@ -834,10 +824,12 @@ impl api::Peripheral for Peripheral {
 
         let stop_result = JsFuture::from(registration.characteristic.stop_notifications()).await;
 
-        let remove_result = registration.characteristic.remove_event_listener_with_callback(
-            "characteristicvaluechanged",
-            registration.listener.as_ref().unchecked_ref(),
-        );
+        let remove_result = registration
+            .characteristic
+            .remove_event_listener_with_callback(
+                "characteristicvaluechanged",
+                registration.listener.as_ref().unchecked_ref(),
+            );
 
         if let Err(error) = stop_result {
             return Err(Error::RuntimeError(format!(

@@ -1,6 +1,6 @@
 use async_trait::async_trait;
 
-use crate::{api, Result};
+use crate::{Result, api};
 
 use super::adapter::Adapter;
 

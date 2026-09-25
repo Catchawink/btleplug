@@ -100,8 +100,6 @@ use std::time::Duration;
 
 #[cfg(not(target_arch = "xtensa"))]
 pub mod api;
-#[cfg(target_arch = "wasm32")]
-mod web;
 #[cfg(target_os = "linux")]
 mod bluez;
 #[cfg(not(any(target_os = "linux", target_arch = "xtensa")))]
@@ -111,13 +109,15 @@ mod corebluetooth;
 #[cfg(target_os = "android")]
 mod droidplug;
 #[cfg(not(target_arch = "xtensa"))]
+pub mod models;
+#[cfg(not(target_arch = "xtensa"))]
 pub mod platform;
 #[cfg(feature = "serde")]
 pub mod serde;
+#[cfg(target_arch = "wasm32")]
+mod web;
 #[cfg(target_os = "windows")]
 mod winrtble;
-#[cfg(not(target_arch = "xtensa"))]
-pub mod models;
 
 /// The main error type returned by most methods in btleplug.
 #[cfg(not(target_arch = "xtensa"))]

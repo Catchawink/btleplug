@@ -1,6 +1,6 @@
 pub mod objects;
 
-use ::jni::{objects::JObject, JNIEnv, JavaVM, NativeMethod};
+use ::jni::{JNIEnv, JavaVM, NativeMethod, objects::JObject};
 use jni::{objects::JString, sys::jboolean};
 use once_cell::sync::OnceCell;
 use std::ffi::c_void;
@@ -70,7 +70,8 @@ impl From<::jni::errors::Error> for crate::Error {
 }
 
 extern "C" fn adapter_report_scan_result(env: JNIEnv, obj: JObject, scan_result: JObject) {
-    if let Err(error) = super::adapter::adapter_report_scan_result_internal(&env, obj, scan_result) {
+    if let Err(error) = super::adapter::adapter_report_scan_result_internal(&env, obj, scan_result)
+    {
         eprintln!("btleplug Android scan result failed: {error:?}");
         if env.exception_check().unwrap_or(false) {
             let _ = env.exception_describe();

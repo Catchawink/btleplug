@@ -11,7 +11,7 @@
 //
 // Copyright (c) 2014 The Rust Project Developers
 
-use crate::{api::BDAddr, winrtble::utils, Error, Result};
+use crate::{Error, Result, api::BDAddr, winrtble::utils};
 use log::{debug, trace};
 use windows::{
     Devices::Bluetooth::{

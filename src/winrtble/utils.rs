@@ -11,7 +11,7 @@
 //
 // Copyright (c) 2014 The Rust Project Developers
 
-use crate::{api::CharPropFlags, Error, Result};
+use crate::{Error, Result, api::CharPropFlags};
 use std::str::FromStr;
 use uuid::Uuid;
 use windows::core::GUID;

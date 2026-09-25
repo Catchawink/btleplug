@@ -16,13 +16,13 @@ use super::{
     ble::descriptor::BLEDescriptor, ble::device::BLEDevice, ble::service::BLEService, utils,
 };
 use crate::{
+    Error, Result,
     api::{
-        bleuuid::{uuid_from_u16, uuid_from_u32},
         AddressType, BDAddr, CentralEvent, Characteristic, Descriptor, Peripheral as ApiPeripheral,
         PeripheralProperties, Service, ValueNotification, WriteType,
+        bleuuid::{uuid_from_u16, uuid_from_u32},
     },
     common::{adapter_manager::AdapterManager, util::notifications_stream_from_broadcast_receiver},
-    Error, Result,
 };
 use async_trait::async_trait;
 use dashmap::DashMap;
@@ -44,10 +44,7 @@ use uuid::Uuid;
 use std::sync::Weak;
 use windows::Devices::Bluetooth::{Advertisement::*, BluetoothAddressType};
 
-#[cfg_attr(
-    feature = "serde",
-    derive(Serialize, Deserialize)
-)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub struct PeripheralId(BDAddr);
 

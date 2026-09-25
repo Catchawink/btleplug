@@ -1,11 +1,11 @@
+use crate::models::*;
 use serde::{Deserialize, Serialize};
-use uuid::Uuid;
+use serde_json::json;
 use std::collections::HashMap;
+use tauri_sys::core::{Channel, invoke};
+use uuid::Uuid;
 use wasm_bindgen::prelude::*;
 use wasm_bindgen_futures::spawn_local;
-use tauri_sys::core::{invoke, Channel};
-use crate::models::*;
-use serde_json::json;
 
 /// Connect to this BLE device.
 ///
@@ -73,10 +73,7 @@ pub async fn ble_device_send_string(
 }
 
 /// Read raw data from a BLE characteristic.
-pub async fn ble_device_read(
-    service: Uuid,
-    characteristic: Uuid,
-) -> Result<Vec<u8>, JsValue> {
+pub async fn ble_device_read(service: Uuid, characteristic: Uuid) -> Result<Vec<u8>, JsValue> {
     let args = json!({
         "service": service,
         "characteristic": characteristic,
@@ -152,9 +149,7 @@ where
 }
 
 /// Unsubscribe from a BLE characteristic.
-pub async fn ble_device_unsubscribe(
-    characteristic: Uuid,
-) -> Result<(), JsValue> {
+pub async fn ble_device_unsubscribe(characteristic: Uuid) -> Result<(), JsValue> {
     let args = json!({
         "characteristic": characteristic,
     });
@@ -199,9 +194,7 @@ pub async fn stop_scan() -> Result<(), JsValue> {
 }
 
 /// Register a handler for connection state updates.
-pub async fn get_connection_updates<F>(
-    mut handler: F,
-) -> Result<(), JsValue>
+pub async fn get_connection_updates<F>(mut handler: F) -> Result<(), JsValue>
 where
     F: FnMut(bool) + 'static,
 {
@@ -218,9 +211,7 @@ where
 }
 
 /// Register a handler for scanning state updates.
-pub async fn get_scanning_updates<F>(
-    mut handler: F,
-) -> Result<(), JsValue>
+pub async fn get_scanning_updates<F>(mut handler: F) -> Result<(), JsValue>
 where
     F: FnMut(bool) + 'static,
 {

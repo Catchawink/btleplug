@@ -6,7 +6,7 @@
 // for full license information.
 
 use super::adapter::Adapter;
-use crate::{api, Result};
+use crate::{Result, api};
 use async_trait::async_trait;
 
 /// Implementation of [api::Manager](crate::api::Manager).

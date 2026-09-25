@@ -1,16 +1,15 @@
 use crate::{
+    Error, Result,
     api::{
         self, BDAddr, Characteristic, Descriptor, PeripheralProperties, Service, ValueNotification,
         WriteType,
     },
-    Error, Result,
 };
 use async_trait::async_trait;
 use futures::stream::Stream;
 use jni::{
-    descriptors,
+    JNIEnv, descriptors,
     objects::{GlobalRef, JList, JObject},
-    JNIEnv,
 };
 use jni_utils::{
     arrays::byte_array_to_vec, exceptions::try_block, future::JSendFuture, stream::JSendStream,
@@ -38,13 +37,11 @@ async fn await_java(mut future: JSendFuture) -> jni::errors::Result<GlobalRef> {
             Err(error) => return std::task::Poll::Ready(Err(error)),
         };
         std::future::Future::poll(Pin::new(&mut future), context)
-    }).await
+    })
+    .await
 }
 
-#[cfg_attr(
-    feature = "serde",
-    derive(Serialize, Deserialize)
-)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub struct PeripheralId(pub(super) BDAddr);
 impl Display for PeripheralId {
@@ -360,7 +357,8 @@ impl api::Peripheral for Peripheral {
 
     async fn notifications(&self) -> Result<Pin<Box<dyn Stream<Item = ValueNotification> + Send>>> {
         use futures::stream::StreamExt;
-        let mut stream = self.with_obj(|_env, obj| JSendStream::try_from(obj.get_notifications()?))?;
+        let mut stream =
+            self.with_obj(|_env, obj| JSendStream::try_from(obj.get_notifications()?))?;
         let stream = futures::stream::poll_fn(move |context| {
             let _attachment = match global_jvm().attach_current_thread() {
                 Ok(attachment) => attachment,

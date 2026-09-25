@@ -5,8 +5,8 @@ use uuid::Uuid;
 use wasm_bindgen::JsValue;
 use wasm_bindgen_futures::JsFuture;
 use web_sys::{
-    window, Bluetooth, BluetoothDevice, BluetoothRemoteGattCharacteristic,
-    BluetoothRemoteGattServer, BluetoothRemoteGattService,
+    Bluetooth, BluetoothDevice, BluetoothRemoteGattCharacteristic, BluetoothRemoteGattServer,
+    BluetoothRemoteGattService, window,
 };
 
 pub fn is_tauri() -> bool {
@@ -31,9 +31,7 @@ pub async fn get_bluetooth_device(device_id: String) -> Option<BluetoothDevice> 
     super::adapter::DEVICES.with_borrow(|devices| devices.get(&device_id).cloned())
 }
 
-pub async fn get_bluetooth_device_server(
-    device_id: String,
-) -> Option<BluetoothRemoteGattServer> {
+pub async fn get_bluetooth_device_server(device_id: String) -> Option<BluetoothRemoteGattServer> {
     let device = get_bluetooth_device(device_id).await?;
     let gatt = device.gatt()?;
 
@@ -55,10 +53,7 @@ pub async fn get_bluetooth_characteristic(
     let services = match JsFuture::from(server.get_primary_services()).await {
         Ok(value) => value,
         Err(error) => {
-            log!(&format!(
-                "Error getting Bluetooth services: {:?}",
-                error
-            ));
+            log!(&format!("Error getting Bluetooth services: {:?}", error));
             return None;
         }
     };

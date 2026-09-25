@@ -12,7 +12,7 @@
 // Copyright (c) 2014 The Rust Project Developers
 
 use super::super::utils;
-use crate::{api::Descriptor, Error, Result};
+use crate::{Error, Result, api::Descriptor};
 
 use uuid::Uuid;
 use windows::{

@@ -41,10 +41,7 @@ pub use self::bdaddr::{BDAddr, ParseBDAddrError};
 
 use crate::platform::PeripheralId;
 
-#[cfg_attr(
-    feature = "serde",
-    derive(Serialize, Deserialize)
-)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug, Clone, Copy, Eq, PartialEq, Default)]
 pub enum AddressType {
     Random,
@@ -165,10 +162,7 @@ impl Display for Descriptor {
 
 /// The properties of this peripheral, as determined by the advertising reports we've received for
 /// it.
-#[cfg_attr(
-    feature = "serde",
-    derive(Serialize, Deserialize)
-)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug, Default, Clone)]
 pub struct PeripheralProperties {
     /// The address of this peripheral
@@ -192,10 +186,7 @@ pub struct PeripheralProperties {
     pub class: Option<u32>,
 }
 
-#[cfg_attr(
-    feature = "serde",
-    derive(Serialize, Deserialize)
-)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 /// The filter used when scanning for BLE devices.
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct ScanFilter {
@@ -291,10 +282,7 @@ pub trait Peripheral: Send + Sync + Clone + Debug {
     async fn read_descriptor(&self, descriptor: &Descriptor) -> Result<Vec<u8>>;
 }
 
-#[cfg_attr(
-    feature = "serde",
-    derive(Serialize, Deserialize),
-)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug, Clone)]
 pub enum CentralEvent {
     DeviceDiscovered(PeripheralId),

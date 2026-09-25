@@ -12,12 +12,12 @@ use super::{
     },
 };
 use crate::{
+    Error, Result,
     api::{
         self, BDAddr, CentralEvent, CharPropFlags, Characteristic, Descriptor,
         PeripheralProperties, Service, ValueNotification, WriteType,
     },
     common::{adapter_manager::AdapterManager, util::notifications_stream_from_broadcast_receiver},
-    Error, Result,
 };
 use async_trait::async_trait;
 use futures::channel::mpsc::{Receiver, SendError, Sender};
@@ -37,10 +37,7 @@ use tokio::sync::broadcast;
 use tokio::task;
 use uuid::Uuid;
 
-#[cfg_attr(
-    feature = "serde",
-    derive(Serialize, Deserialize),
-)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub struct PeripheralId(Uuid);
 

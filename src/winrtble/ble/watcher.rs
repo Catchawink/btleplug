@@ -11,7 +11,7 @@
 //
 // Copyright (c) 2014 The Rust Project Developers
 
-use crate::{api::ScanFilter, Error, Result};
+use crate::{Error, Result, api::ScanFilter};
 use windows::{Devices::Bluetooth::Advertisement::*, Foundation::TypedEventHandler};
 
 pub type AdvertismentEventHandler = Box<dyn Fn(&BluetoothLEAdvertisementReceivedEventArgs) + Send>;

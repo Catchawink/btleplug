@@ -13,9 +13,9 @@
 
 use super::{super::utils::to_descriptor_value, descriptor::BLEDescriptor};
 use crate::{
+    Error, Result,
     api::{Characteristic, WriteType},
     winrtble::utils,
-    Error, Result,
 };
 
 use log::{debug, trace};

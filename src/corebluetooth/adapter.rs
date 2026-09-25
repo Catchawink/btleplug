@@ -1,4 +1,4 @@
-use super::internal::{run_corebluetooth_thread, CoreBluetoothEvent, CoreBluetoothMessage};
+use super::internal::{CoreBluetoothEvent, CoreBluetoothMessage, run_corebluetooth_thread};
 use super::peripheral::{Peripheral, PeripheralId};
 use crate::api::{Central, CentralEvent, ScanFilter};
 use crate::common::adapter_manager::AdapterManager;

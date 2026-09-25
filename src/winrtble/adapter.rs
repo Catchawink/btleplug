@@ -13,9 +13,9 @@
 
 use super::{ble::watcher::BLEWatcher, peripheral::Peripheral, peripheral::PeripheralId};
 use crate::{
+    Error, Result,
     api::{BDAddr, Central, CentralEvent, ScanFilter},
     common::adapter_manager::AdapterManager,
-    Error, Result,
 };
 use async_trait::async_trait;
 use futures::stream::Stream;
